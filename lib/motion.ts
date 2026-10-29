@@ -6,6 +6,7 @@ export type MotionBus = {
   exploring: boolean; batterySaver: boolean; calm: boolean;
   introStarted: number | null;
   awake:boolean;selected:string[];onSelect?:((id:string)=>void);onMenu?:((tab:'Notes'|'Roles & rules'|'Players'|'Settings'|'Help')=>void);
+  onReact?:((kind:'point'|'wave',target?:string)=>void);onReactions?:()=>void;
 };
 export function seat(index: number, count: number): [number, number, number] {
   const a = index / Math.max(3, count) * Math.PI * 2;

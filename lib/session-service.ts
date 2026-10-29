@@ -33,6 +33,7 @@ export async function executeSession(body:SessionRequest,token:string){
    const inGame=!['lobby'].includes(room.phase);if(['start','settings','kick','transfer'].includes(cmd.type)){assert(room.host===id,'Only the host may change lobby settings.',403);assert(!inGame,'The director manages the game after Start.',403)}
    if(['night','undo','reveal','dawnReady','dayReady','vote','lockVote','claim'].includes(cmd.type)){assert(body.round===room.round,'A new round has begun. Refresh your view.',409);assert(g?.order.includes(id)&&!player.spectator,'You are watching this round.',403)}
    switch(cmd.type){
+    case 'expression':assert(!['night','dealing','dawn','vote'].includes(room.phase),'Stay quiet during this phase.');assert(!player.lastExpression||now-player.lastExpression>1200,'Wait a moment.');player.expression=cmd.value;player.lastExpression=now;break;
     case 'start':startSessionRound(room,now,randomInt(0x7fffffff));break;
     case 'lobbyReady':assert(room.phase==='lobby','Wait for the lobby.');player.ready=cmd.value;break;
     case 'settings':{const discord=discordURL(cmd.settings.discord);assert(discord!==null,'Use a Discord invite or channel link.');if(cmd.settings.deck)validateDeck(cmd.settings.deck,room.players.filter(p=>!p.left&&!p.spectator).length);assert(!cmd.settings.deck?.includes('doppel')||cmd.settings.doppel,'Enable Doppelgänger before adding it.');room.settings={...cmd.settings,discord};break;}

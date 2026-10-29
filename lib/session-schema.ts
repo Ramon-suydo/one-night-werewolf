@@ -16,6 +16,7 @@ export const roomSettingsSchema=z.strictObject({ruleset:z.enum(['classic','solo'
 export const sessionCommand=z.discriminatedUnion('type',[
  z.strictObject({type:z.literal('create'),name:z.string().max(100)}),z.strictObject({type:z.literal('join'),name:z.string().max(100),spectator:z.boolean().optional()}),
  z.strictObject({type:z.literal('sync')}),z.strictObject({type:z.literal('advance')}),z.strictObject({type:z.literal('start')}),z.strictObject({type:z.literal('reveal')}),
+ z.strictObject({type:z.literal('expression'),value:z.enum(['neutral','suspicious','smug','shocked','sad','angry'])}),
  z.strictObject({type:z.literal('lobbyReady'),value:z.boolean()}),z.strictObject({type:z.literal('dayReady'),value:z.boolean()}),z.strictObject({type:z.literal('dawnReady')}),
  z.strictObject({type:z.literal('night'),action:roleActionSchema}),z.strictObject({type:z.literal('undo')}),z.strictObject({type:z.literal('vote'),target:id.nullable()}),z.strictObject({type:z.literal('lockVote')}),
  z.strictObject({type:z.literal('settings'),settings:roomSettingsSchema}),z.strictObject({type:z.literal('appearance'),appearance:z.strictObject({cloak:z.number().int().min(0).max(7),hat:z.number().int().min(0).max(5),face:z.number().int().min(0).max(5)})}),
