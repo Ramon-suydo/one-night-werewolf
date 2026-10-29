@@ -6,8 +6,8 @@ import * as T from 'three';
 import {CLOAKS} from '@/lib/social';
 import type {SceneState} from '@/lib/scene';
 import { seat, type MotionBus } from '@/lib/motion';
-import type { Role } from '@/engine';
-import { getTabletAtlas,tabletIndex,ATLAS_ROWS,ATLAS_COLS } from '@/lib/tablet-atlas';
+import type {Card} from '@/engine';
+import {Card3D} from '@/components/Card3D';
 import { NIGHT,MOODS } from '@/lib/theme.mjs';
 import { RULES } from '@/lib/rules';
 import { introCamera } from '@/lib/vfx';
@@ -20,7 +20,7 @@ import {detectGPU,QUALITY,TIERS,type QualityTier} from '@/lib/quality';
 // altar, 5-sided faceted mountains/pines, 50-degree camera and low-res renderer.
 const COLORS = { night: NIGHT.ink, dawn: '#e8a07a', ground: '#1f2a2e', clearing: '#3a2a22', snow: NIGHT.ice, pine: '#0e3a34', fire: NIGHT.fire, gold: NIGHT.gold };
 
-type Props = { view: SceneState | null; bus: MotionBus; onFallback: () => void; muted: string[] };
+type Props = { view: SceneState | null; bus: MotionBus; onFallback: () => void; muted: string[];faces?:Record<string,Card> };
 const random = (i: number) => { const n = Math.sin(i * 127.1 + 311.7) * 43758.5453; return n - Math.floor(n); };
 function Material({ color, glow = false }: { color: string; glow?: boolean }) {
   return glow ? <meshBasicMaterial color={color} /> : <meshLambertMaterial color={color} flatShading />;
@@ -173,35 +173,18 @@ function Character({ player, index, count, view, bus, reduced, elapsed }: { play
     <mesh ref={dust} position={[0, .08, .25]} visible={false}><icosahedronGeometry args={[.35, 0]} /><meshBasicMaterial color="#8a8fa8" transparent opacity={.15} /></mesh>
   </group>;
 }
-let sharedAtlas:T.CanvasTexture|undefined;
-function cardTexture(role: Role | null) {
-  sharedAtlas ||= new T.CanvasTexture(getTabletAtlas());const texture=sharedAtlas.clone(),index=tabletIndex(role||'back');
-  texture.repeat.set(1/ATLAS_COLS,1/ATLAS_ROWS);texture.offset.set(index%ATLAS_COLS/ATLAS_COLS,1-(Math.floor(index/ATLAS_COLS)+1)/ATLAS_ROWS);texture.magFilter=T.NearestFilter;texture.minFilter=T.NearestFilter;texture.colorSpace=T.SRGBColorSpace;return texture;
+function SceneCard({index,view,dealElapsed,reduced,bus,faces}:{index:number;view:SceneState;elapsed:React.RefObject<number>;dealElapsed:React.RefObject<number>;reduced:boolean;bus:MotionBus;faces:Record<string,Card>}){
+ const group=useRef<T.Group>(null),[up,setUp]=useState(false),target=useMemo(()=>new T.Vector3(),[]);const count=view.order.length,id=index<count?view.order[index]:'center-'+(index-count),face=faces[id];
+ useEffect(()=>{setUp(false);if(view.phase!=='result')return;const timer=setTimeout(()=>setUp(true),reduced?0:(.7+index*.45)*1000);return()=>clearTimeout(timer)},[view.phase,view.round,index,reduced]);
+ useFrame(({camera,clock})=>{if(!group.current)return;if(index<count){const at=seat(index,count),radius=view.phase==='result'?1:.6;target.set(at[0]*radius,view.phase==='result'?3.6:1.4,at[2]*radius)}else target.set((index-count-1)*1.2,2.4,-1.3);
+ const dealt=reduced?1:T.MathUtils.clamp((dealElapsed.current-index*.08)/.8,0,1);group.current.position.copy(target).multiplyScalar(dealt);group.current.position.y+=Math.sin(Math.PI*dealt)*3+(reduced?0:Math.sin(clock.elapsedTime*2+index)*.06);group.current.lookAt(camera.position);const slam=view.emotes.find(e=>e.kind==='slam'&&Date.now()-e.at<600);if(slam&&!reduced)group.current.position.y+=Math.sin((Date.now()-slam.at)/600*Math.PI)*.35;});
+ const state=up||view.phase==='dealing'&&!!face?'up':view.phase==='night'&&!!face?'peeked':'down';
+ return <group ref={group}><Card3D id={id} face={face} state={state} selectable={view.phase==='night'&&bus.awake||view.phase==='dealing'&&id===view.me} selected={bus.selected.includes(id)} reduced={reduced} onSelect={target=>bus.onSelect?.(target)} onPeek={target=>bus.onPeek?.(target)} onSwap={(a,b)=>bus.onSwap?.(a,b)}/></group>;
 }
-function SceneCard({ index, view, elapsed, dealElapsed, reduced, bus }: { index: number; view: SceneState; elapsed: React.RefObject<number>; dealElapsed: React.RefObject<number>; reduced: boolean;bus:MotionBus }) {
-  const group = useRef<T.Group>(null); const front = useRef<T.Mesh>(null); const back = useRef<T.Mesh>(null);
-  const role = view.phase === 'result' ? view.reveal?.cards[index] || null : null;
-  const textures = useMemo(() => ({ back: cardTexture(null), front: cardTexture(role) }), [role]);
-  useEffect(() => () => { textures.back.dispose(); textures.front.dispose(); }, [textures]);
-  useFrame(({ clock, camera }) => {
-    if (!group.current) return;
-    const count = view.order.length; const owner = view.players.find(p => p.id === view.order[index]); const tag = owner ? seat(view.order.indexOf(owner.id), count) : [0, 0, 0];
-    const target = index < count ? new T.Vector3(tag[0], 3.6, tag[2]) : new T.Vector3((index - count - 1) * 1.2, 1.2, -3.4);
-    const dealt = reduced ? 1 : T.MathUtils.clamp((dealElapsed.current - index * .08) / .8, 0, 1);
-    group.current.position.copy(target).multiplyScalar(dealt); group.current.position.y += Math.sin(Math.PI * dealt) * 4 + (reduced ? 0 : Math.sin(clock.elapsedTime * 2 + index) * .08);
-    const slam=view.emotes.find(e=>e.kind==='slam'&&Date.now()-e.at<600);if(slam&&!reduced)group.current.position.y+=Math.sin((Date.now()-slam.at)/600*Math.PI)*.35;
-    group.current.lookAt(camera.position);
-    const progress = view.phase === 'result' ? reduced ? 1 : T.MathUtils.clamp((elapsed.current - .7 - index * .45) / .5, 0, 1) : 0;
-    const step = Math.floor(progress * 6) / 6;
-    group.current.rotateY(Math.PI * (1 - step));
-    if (front.current) front.current.visible = step >= .5; if (back.current) back.current.visible = step < .5;
-  });
-  return <group ref={group} onClick={e=>{e.stopPropagation();bus.onSelect?.(index<view.order.length?view.order[index]:'center-'+(index-view.order.length))}}><mesh ref={front}><planeGeometry args={[.8, 1.333]} /><meshBasicMaterial map={textures.front} alphaTest={.5} side={T.DoubleSide} /></mesh><mesh ref={back}><planeGeometry args={[.8, 1.333]} /><meshBasicMaterial map={textures.back} alphaTest={.5} side={T.DoubleSide} /></mesh></group>;
-}
-function World({ view, bus, low, setLow, reduced }: Props & { low: boolean; setLow: () => void; reduced: boolean }) {
+function World({ view, bus, faces={}, low, setLow, reduced }: Props & { low: boolean; setLow: () => void; reduced: boolean }) {
   const { scene, camera, gl } = useThree(); const day = useRef(0); const ambient = useRef<T.AmbientLight>(null); const moonlight = useRef<T.DirectionalLight>(null); const orb = useRef<T.Mesh>(null); const skyBands = useRef<T.Group>(null);
   const size=useThree(s=>s.size);
-  useEffect(()=>{if(camera instanceof T.PerspectiveCamera){camera.fov=Math.max(50,T.MathUtils.radToDeg(2*Math.atan(Math.tan(T.MathUtils.degToRad(25))/Math.min(1,size.width/size.height))));camera.updateProjectionMatrix()}},[camera,size.width,size.height]);
+  useEffect(()=>{if(camera instanceof T.PerspectiveCamera){camera.fov=Math.max(50,T.MathUtils.radToDeg(2*Math.atan(Math.tan(T.MathUtils.degToRad(view?.phase==='night'?40:25))/Math.min(1,size.width/size.height))));camera.updateProjectionMatrix()}},[camera,size.width,size.height,view?.phase]);
   const stars = useRef<T.Points>(null); const ring = useRef<T.Mesh>(null); const trail = useRef<T.Mesh>(null); const projectile = useRef<T.Mesh>(null);
   const start = useRef(0); const elapsed = useRef(0); const keys = useRef<Record<string, boolean>>({}); const privateTarget = useRef<{ id: string; until: number } | null>(null); const performanceStats = useRef({ frames: 0, time: 0 });
   const dealStarted = useRef(0); const dealElapsed = useRef(0);
@@ -274,7 +257,7 @@ function World({ view, bus, low, setLow, reduced }: Props & { low: boolean; setL
     <points ref={stars}><bufferGeometry><bufferAttribute attach="attributes-position" args={[starPositions, 3]} /></bufferGeometry><pointsMaterial color="#ffffff" size={2} sizeAttenuation={false} transparent fog={false} /></points><mesh ref={orb}><sphereGeometry args={[4, 8, 6]} /><meshBasicMaterial color="#e8e4ff" fog={false} /></mesh>
     <mesh position={[0, .15, -3.4]}><cylinderGeometry args={[1.8, 2, .3, 6]} /><Material color="#55506a" /></mesh>
     {view && players.map((p, i) => <Character key={p.id} player={p} index={i} count={players.length} view={view} bus={bus} reduced={reduced} elapsed={elapsed} />)}
-    {view && view.phase !== 'lobby' && Array.from({ length: view.order.length + 3 }, (_, i) => <SceneCard key={`${view.round}-${i}`} index={i} view={view} elapsed={elapsed} dealElapsed={dealElapsed} reduced={reduced} bus={bus} />)}
+    {view && view.phase !== 'lobby' && Array.from({ length: view.order.length + 3 }, (_, i) => <SceneCard key={`${view.round}-${i}`} index={i} view={view} elapsed={elapsed} dealElapsed={dealElapsed} reduced={reduced} bus={bus} faces={faces} />)}
     <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[.8, 1.1, 10]} /><meshBasicMaterial color="#ffd35a" side={T.DoubleSide} /></mesh>
     <mesh ref={trail} visible={false}><cylinderGeometry args={[1, 1, 1, 6]} /><meshBasicMaterial color="#ffd35a" transparent opacity={.65} depthWrite={false} /></mesh><mesh ref={projectile} visible={false}><octahedronGeometry args={[.16, 0]} /><meshBasicMaterial color="#ffd35a" /></mesh>
   </>;

@@ -12,6 +12,7 @@ import {PREFERENCES,type Preferences} from '@/lib/preferences';
 import {detectGPU} from '@/lib/quality';
 import {mountAudio} from '@/lib/audio';
 import {bannerAt} from '@/lib/result-timeline';
+import {permittedFaces} from '@/lib/card-interaction';
 import type {Role,RoleAction,SimpleAction} from '@/engine';
 import type {DrawerTab} from './session-drawer';
 import {Tablet} from './tablet';
@@ -47,7 +48,14 @@ export default function Home(){
   if(role==='doppel'&&center||role==='drunk'&&!center||['robber','troublemaker'].includes(role||'')&&center||!['doppel','seer','robber','troublemaker','drunk','wolf'].includes(role||''))return;
   if(role==='wolf'&&(!center||!own.report.some(r=>r.text.includes('lone wolf'))))return;
   setSelected(old=>{if(old.includes(target))return old.filter(t=>t!==target);const max=role==='troublemaker'||role==='seer'&&center?2:1;const same=old.filter(t=>t.startsWith('center-')===center);return[...same.slice(-(max-1)||same.length),target]});
- };bus.onSelect=choose;bus.onMenu=open;bus.onReact=(kind,target)=>{void send({type:'emote',kind,target})};bus.onReactions=()=>setEmotes(true);return()=>{bus.onSelect=undefined;bus.onMenu=undefined;bus.onReact=undefined;bus.onReactions=undefined}},[s,own,bus,drawer,intro,selected,send,open]);
+ };bus.onSelect=choose;bus.onMenu=open;bus.onReact=(kind,target)=>{void send({type:'emote',kind,target})};bus.onReactions=()=>setEmotes(true);
+ bus.onPeek=target=>{if(!s||!own)return;if(s.phase==='dealing'&&target===own.id){void send({type:'reveal'});return}if(s.phase!=='night'||!own.awake||own.locked||target===own.id)return;const power=own.role==='doppel'&&own.copiedRole?own.copiedRole:own.role;let action:RoleAction|undefined;
+ if(power==='doppel'&&!target.startsWith('center-'))action={role:'doppel',target};
+ if(power==='seer'){if(!target.startsWith('center-'))action={role:'seer',mode:'player',target};else{const centers=[...new Set([...selected.filter(t=>t.startsWith('center-')),target])].map(t=>Number(t.slice(7)) as 0|1|2);if(centers.length===2)action={role:'seer',mode:'center',centers:centers as [0|1|2,0|1|2]}}}
+ if(power==='wolf'&&target.startsWith('center-'))action={role:'wolf',center:Number(target.slice(7)) as 0|1|2};
+ if(action){if(own.role==='doppel'&&own.step===0&&own.action?.role==='doppel'&&!('skip'in own.action)&&action.role!=='doppel')action={...own.action,followup:action as SimpleAction};void send({type:'night',action});setSelected([])}else choose(target)};
+ bus.onSwap=(a,b)=>{if(!s||!own||!own.awake||own.locked||a===b)return;const power=own.role==='doppel'?own.copiedRole:own.role;if(power==='troublemaker'&&![a,b].some(t=>t===own.id||t.startsWith('center-')))setSelected([a,b]);if(power==='robber'&&[a,b].includes(own.id)){const target=a===own.id?b:a;if(!target.startsWith('center-'))setSelected([target])}if(power==='drunk'&&[a,b].includes(own.id)){const target=a===own.id?b:a;if(target.startsWith('center-'))setSelected([target])}window.dispatchEvent(new CustomEvent('werewolf-private-choice',{detail:{target:b}}))};
+ return()=>{bus.onSelect=undefined;bus.onMenu=undefined;bus.onReact=undefined;bus.onReactions=undefined;bus.onPeek=undefined;bus.onSwap=undefined}},[s,own,bus,drawer,intro,selected,send,open]);
  const dispatch=(c:Command)=>{audio.current?.beep(420,.06);void send(c);if(['night','vote'].includes(c.type))setSelected([])};
  useEffect(()=>{setResultReady(false);if(s?.phase!=='result')return;const timer=setTimeout(()=>{setResultReady(true);audio.current?.beep(s.result?.players.find(p=>p.id===own?.id)?.won?880:110,.4)},prefs.calm?0:bannerAt(s.order.length)*1000);return()=>clearTimeout(timer)},[s?.phase,s?.round,s?.order.length,prefs.calm,own?.id,s?.result]);
  function nightAction():RoleAction|undefined{
@@ -74,7 +82,7 @@ export default function Home(){
   else context=<button className="btn alt primary-action" disabled>{own.locked?'Choice saved':'Rest by the fire'}</button>;
  }
  return <main className="world-game" data-phase={s?.phase||'welcome'} data-awake={!!own?.awake}>
-  {gpuFailed?<section className="gpu-error" role="alert"><h1>Enable 3D graphics</h1><p>Enable hardware acceleration in browser settings, restart the browser, then Retry. Try current Chrome, Edge, Firefox or Safari.</p><button className="btn" onClick={()=>setGpuFailed(false)}>Retry 3D</button></section>:<Clearing view={view} bus={bus} muted={muted} onFallback={fallback}/>}
+  {gpuFailed?<section className="gpu-error" role="alert"><h1>Enable 3D graphics</h1><p>Enable hardware acceleration in browser settings, restart the browser, then Retry. Try current Chrome, Edge, Firefox or Safari.</p><button className="btn" onClick={()=>setGpuFailed(false)}>Retry 3D</button></section>:<Clearing view={view} faces={permittedFaces(state)} bus={bus} muted={muted} onFallback={fallback}/>}
   {!intro&&<>{!playing?<><button className="icon-button menu-toggle" aria-label="Open settings" onClick={()=>open('Settings')}>⚙</button><button className="icon-button help-toggle" aria-label="Open help" onClick={()=>open('Help')}>?</button></>:<><button className="role-chip" onClick={()=>{setRoleOpen(v=>!v);setDrawer(null);setEmotes(false)}} aria-expanded={roleOpen}>{own?.role?RULES[own.role].glyph:'◌'} <span>{title}</span></button><button className="icon-button menu-toggle" aria-label="Open menu" onClick={()=>drawer?setDrawer(null):open('Notes')}>☰</button></>}
   {s?<><header className="phase-strip"><span>{s.phase==='vote'?`${s.lockedCount}/${s.connectedCount} stones locked`:s.phase==='day'?`${s.readyCount}/${s.connectedCount} ready`:s.phase.toUpperCase()}</span><p>{instruction(s,own?.awake,own?.role)}</p>{s.nextWakeAt&&<span className="timer-ring" role="timer" aria-label="Time remaining">{Math.floor(clock/60)}:{String(clock%60).padStart(2,'0')}</span>}</header>
   {s.phase==='lobby'&&<section className="lobby-hud"><small>YOUR FIRE</small><h1 className="room-code">{s.code}</h1><p>{s.players.filter(p=>!p.spectator&&!p.left).length}/10 seats · {s.readyCount} ready</p><button className="btn alt" onClick={()=>{void navigator.clipboard.writeText(location.origin+'/?room='+s.code).then(()=>setInviteCopied(true))}}>{inviteCopied?'Link copied':'Copy invite'}</button>{host&&<button className="btn alt" onClick={()=>dispatch({type:'lobbyReady',value:!s.players.find(p=>p.id===own?.id)?.ready})}>{s.players.find(p=>p.id===own?.id)?.ready?'Leave ready ring':'Enter ready ring'}</button>}</section>}

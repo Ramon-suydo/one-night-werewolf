@@ -1,0 +1,15 @@
+import {describe,it,expect} from 'vitest';
+import {permittedFaces,cardProgress} from '../lib/card-interaction';
+import type {Snapshot} from '../lib/session-types';
+function view():Snapshot{return{public:{phase:'night',order:['0','1','2'],result:null},private:{id:'0',role:'seer',card:{role:'seer'},awake:true,revealed:true,report:[],undoUntil:null}} as unknown as Snapshot}
+describe('Card3D face authorization',()=>{
+ it('passes no hidden seat or center face',()=>{const faces=permittedFaces(view());expect(Object.keys(faces)).toEqual(['0']);expect(faces['1']).toBeUndefined();expect(faces['center-0']).toBeUndefined()});
+ it('passes no original card until the private reveal',()=>{const s=view();s.public.phase='dealing';s.private.revealed=false;expect(permittedFaces(s)).toEqual({});s.private.revealed=true;expect(permittedFaces(s)['0']).toEqual({role:'seer'})});
+ it('opens only the Seer report target',()=>{const s=view();s.private.action={role:'seer',mode:'player',target:'1'};s.private.report=[{text:'You inspected these tablets:',cards:[{role:'wolf'}]}];expect(permittedFaces(s)['1']).toEqual({role:'wolf'});expect(permittedFaces(s)['2']).toBeUndefined()});
+ it('opens exactly two authorized center cards',()=>{const s=view();s.private.action={role:'seer',mode:'center',centers:[0,2]};s.private.report=[{text:'You inspected these tablets:',cards:[{role:'wolf'},{role:'tanner'}]}];expect(permittedFaces(s)['center-0']).toEqual({role:'wolf'});expect(permittedFaces(s)['center-2']).toEqual({role:'tanner'});expect(permittedFaces(s)['center-1']).toBeUndefined()});
+ it('does not show the Drunk an invented new card',()=>{const s=view();s.private.role='drunk';s.private.card={role:'drunk'};s.private.action={role:'drunk',center:1};s.private.report=[{text:'You swapped without looking.'}];expect(permittedFaces(s)['0']).toBeUndefined();expect(permittedFaces(s)['center-1']).toBeUndefined()});
+ it('shows the Robber only the card actually reported',()=>{const s=view();s.private.role='robber';s.private.card={role:'robber'};s.private.action={role:'robber',target:'1'};expect(permittedFaces(s)['0']).toBeUndefined();s.private.report=[{text:'You robbed a player. Your new tablet:',cards:[{role:'wolf'}]}];expect(permittedFaces(s)['0']).toEqual({role:'wolf'});expect(permittedFaces(s)['1']).toBeUndefined()});
+ it('closes every physical card when eyes close or discussion begins',()=>{const s=view();s.private.awake=false;expect(permittedFaces(s)).toEqual({});s.private.awake=true;s.public.phase='day';expect(permittedFaces(s)).toEqual({})});
+ it('opens the whole deal only after public Results',()=>{const s=view();s.public.phase='result';s.public.result={cards:[{role:'wolf'},{role:'seer'},{role:'robber'},{role:'drunk'},{role:'tanner'},{role:'villager'}]} as NonNullable<typeof s.public.result>;expect(Object.keys(permittedFaces(s))).toHaveLength(6);expect(permittedFaces(s)['center-2']).toEqual({role:'villager'})});
+ it('clamps holds before and after their window',()=>{expect(cardProgress(100,0)).toBe(0);expect(cardProgress(100,375)).toBe(.5);expect(cardProgress(100,900)).toBe(1)});
+});
