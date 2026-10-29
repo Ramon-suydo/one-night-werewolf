@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "id: public."
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 12,
+      "description": "name: public."
+    },
+    "appearance": {
+      "type": "object",
+      "properties": {
+        "cloak": {
+          "type": "number"
+        },
+        "hat": {
+          "type": "number"
+        },
+        "face": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "cloak",
+        "hat",
+        "face"
+      ],
+      "additionalProperties": false,
+      "description": "appearance: public."
+    },
+    "connected": {
+      "type": "boolean",
+      "description": "connected: public."
+    },
+    "spectator": {
+      "type": "boolean",
+      "description": "spectator: public."
+    },
+    "left": {
+      "type": "boolean",
+      "description": "left: public."
+    },
+    "ready": {
+      "type": "boolean",
+      "description": "ready: public."
+    },
+    "revealed": {
+      "type": "boolean",
+      "description": "revealed: public."
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "appearance",
+    "connected",
+    "spectator",
+    "left",
+    "ready",
+    "revealed"
+  ],
+  "additionalProperties": false,
+  "title": "PlayerPublic",
+  "description": "Visibility: public. See ARCHITECTURE.md."
+}

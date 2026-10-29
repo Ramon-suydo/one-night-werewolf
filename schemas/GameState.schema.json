@@ -1,0 +1,686 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "code: public; result/original/ballots populated only in Results."
+    },
+    "host": {
+      "type": "string",
+      "description": "host: public; result/original/ballots populated only in Results."
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "lobby",
+        "dealing",
+        "night",
+        "dawn",
+        "day",
+        "vote",
+        "resolution",
+        "result"
+      ],
+      "description": "phase: public; result/original/ballots populated only in Results."
+    },
+    "round": {
+      "type": "number",
+      "description": "round: public; result/original/ballots populated only in Results."
+    },
+    "phaseStarted": {
+      "type": "number",
+      "description": "phaseStarted: public; result/original/ballots populated only in Results."
+    },
+    "deadline": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "deadline: public; result/original/ballots populated only in Results."
+    },
+    "nextWakeAt": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "nextWakeAt: public; result/original/ballots populated only in Results."
+    },
+    "step": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "step: public; result/original/ballots populated only in Results."
+    },
+    "stepDeadline": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "stepDeadline: public; result/original/ballots populated only in Results."
+    },
+    "caption": {
+      "type": "string",
+      "description": "caption: public; result/original/ballots populated only in Results."
+    },
+    "players": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 12
+          },
+          "appearance": {
+            "type": "object",
+            "properties": {
+              "cloak": {
+                "type": "number"
+              },
+              "hat": {
+                "type": "number"
+              },
+              "face": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "cloak",
+              "hat",
+              "face"
+            ],
+            "additionalProperties": false
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "spectator": {
+            "type": "boolean"
+          },
+          "left": {
+            "type": "boolean"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "revealed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "appearance",
+          "connected",
+          "spectator",
+          "left",
+          "ready",
+          "revealed"
+        ],
+        "additionalProperties": false
+      },
+      "description": "players: public; result/original/ballots populated only in Results."
+    },
+    "rolesInPlay": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "doppel",
+          "wolf",
+          "minion",
+          "mason",
+          "seer",
+          "robber",
+          "troublemaker",
+          "drunk",
+          "insomniac",
+          "hunter",
+          "tanner",
+          "villager"
+        ]
+      },
+      "description": "rolesInPlay: public; result/original/ballots populated only in Results."
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "ruleset": {
+          "type": "string",
+          "enum": [
+            "classic",
+            "solo"
+          ]
+        },
+        "allowSkip": {
+          "type": "boolean"
+        },
+        "doppel": {
+          "type": "boolean"
+        },
+        "daySeconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 900
+        },
+        "speed": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 2
+        },
+        "preset": {
+          "type": "string",
+          "enum": [
+            "beginner",
+            "classic",
+            "chaos"
+          ]
+        },
+        "deck": {
+          "anyOf": [
+            {
+              "maxItems": 13,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "doppel",
+                  "wolf",
+                  "minion",
+                  "mason",
+                  "seer",
+                  "robber",
+                  "troublemaker",
+                  "drunk",
+                  "insomniac",
+                  "hunter",
+                  "tanner",
+                  "villager"
+                ]
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowed": {
+          "maxItems": 12,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "doppel",
+              "wolf",
+              "minion",
+              "mason",
+              "seer",
+              "robber",
+              "troublemaker",
+              "drunk",
+              "insomniac",
+              "hunter",
+              "tanner",
+              "villager"
+            ]
+          }
+        },
+        "chat": {
+          "type": "string",
+          "enum": [
+            "off",
+            "day",
+            "always"
+          ]
+        },
+        "filter": {
+          "type": "boolean"
+        },
+        "discord": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "rotateHost": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ruleset",
+        "allowSkip",
+        "doppel",
+        "daySeconds",
+        "speed",
+        "preset",
+        "deck",
+        "allowed",
+        "chat",
+        "filter",
+        "discord",
+        "rotateHost"
+      ],
+      "additionalProperties": false,
+      "description": "settings: public; result/original/ballots populated only in Results."
+    },
+    "readyCount": {
+      "type": "number",
+      "description": "readyCount: public; result/original/ballots populated only in Results."
+    },
+    "connectedCount": {
+      "type": "number",
+      "description": "connectedCount: public; result/original/ballots populated only in Results."
+    },
+    "lockedCount": {
+      "type": "number",
+      "description": "lockedCount: public; result/original/ballots populated only in Results."
+    },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "player": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "doppel",
+              "wolf",
+              "minion",
+              "mason",
+              "seer",
+              "robber",
+              "troublemaker",
+              "drunk",
+              "insomniac",
+              "hunter",
+              "tanner",
+              "villager"
+            ]
+          },
+          "at": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "player",
+          "role",
+          "at"
+        ],
+        "additionalProperties": false
+      },
+      "description": "claims: public; result/original/ballots populated only in Results."
+    },
+    "chat": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "player": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "at": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "player",
+          "text",
+          "at"
+        ],
+        "additionalProperties": false
+      },
+      "description": "chat: public; result/original/ballots populated only in Results."
+    },
+    "emotes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "player": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "at": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "player",
+          "kind",
+          "at"
+        ],
+        "additionalProperties": false
+      },
+      "description": "emotes: public; result/original/ballots populated only in Results."
+    },
+    "scores": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "wins": {
+            "type": "number"
+          },
+          "streak": {
+            "type": "number"
+          },
+          "banished": {
+            "type": "number"
+          },
+          "bluffs": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "wins",
+          "streak",
+          "banished",
+          "bluffs"
+        ],
+        "additionalProperties": false
+      },
+      "description": "scores: public; result/original/ballots populated only in Results."
+    },
+    "result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "cards": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "doppel",
+                      "wolf",
+                      "minion",
+                      "mason",
+                      "seer",
+                      "robber",
+                      "troublemaker",
+                      "drunk",
+                      "insomniac",
+                      "hunter",
+                      "tanner",
+                      "villager"
+                    ]
+                  },
+                  "copy": {
+                    "type": "string",
+                    "enum": [
+                      "doppel",
+                      "wolf",
+                      "minion",
+                      "mason",
+                      "seer",
+                      "robber",
+                      "troublemaker",
+                      "drunk",
+                      "insomniac",
+                      "hunter",
+                      "tanner",
+                      "villager"
+                    ]
+                  }
+                },
+                "required": [
+                  "role"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "effective": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "doppel",
+                  "wolf",
+                  "minion",
+                  "mason",
+                  "seer",
+                  "robber",
+                  "troublemaker",
+                  "drunk",
+                  "insomniac",
+                  "hunter",
+                  "tanner",
+                  "villager"
+                ]
+              }
+            },
+            "counts": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "banished": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "hunted": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "winners": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "players": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "won": {
+                    "type": "boolean"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "doppel",
+                      "wolf",
+                      "minion",
+                      "mason",
+                      "seer",
+                      "robber",
+                      "troublemaker",
+                      "drunk",
+                      "insomniac",
+                      "hunter",
+                      "tanner",
+                      "villager"
+                    ]
+                  },
+                  "goal": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "won",
+                  "role",
+                  "goal",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "banner": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "cards",
+            "effective",
+            "counts",
+            "banished",
+            "hunted",
+            "winners",
+            "players",
+            "banner"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "result: public; result/original/ballots populated only in Results."
+    },
+    "order": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "order: public; result/original/ballots populated only in Results."
+    },
+    "original": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "enum": [
+                  "doppel",
+                  "wolf",
+                  "minion",
+                  "mason",
+                  "seer",
+                  "robber",
+                  "troublemaker",
+                  "drunk",
+                  "insomniac",
+                  "hunter",
+                  "tanner",
+                  "villager"
+                ]
+              },
+              "copy": {
+                "type": "string",
+                "enum": [
+                  "doppel",
+                  "wolf",
+                  "minion",
+                  "mason",
+                  "seer",
+                  "robber",
+                  "troublemaker",
+                  "drunk",
+                  "insomniac",
+                  "hunter",
+                  "tanner",
+                  "villager"
+                ]
+              }
+            },
+            "required": [
+              "role"
+            ],
+            "additionalProperties": false
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "original: public; result/original/ballots populated only in Results."
+    },
+    "ballots": {
+      "anyOf": [
+        {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "ballots: public; result/original/ballots populated only in Results."
+    }
+  },
+  "required": [
+    "code",
+    "host",
+    "phase",
+    "round",
+    "phaseStarted",
+    "deadline",
+    "nextWakeAt",
+    "step",
+    "stepDeadline",
+    "caption",
+    "players",
+    "rolesInPlay",
+    "settings",
+    "readyCount",
+    "connectedCount",
+    "lockedCount",
+    "claims",
+    "chat",
+    "emotes",
+    "scores",
+    "result",
+    "order",
+    "original",
+    "ballots"
+  ],
+  "additionalProperties": false,
+  "title": "GameState",
+  "description": "Visibility: public; result/original/ballots populated only in Results. See ARCHITECTURE.md."
+}

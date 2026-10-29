@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ruleset": {
+      "type": "string",
+      "enum": [
+        "classic",
+        "solo"
+      ],
+      "description": "ruleset: public; host may edit only in lobby."
+    },
+    "allowSkip": {
+      "type": "boolean",
+      "description": "allowSkip: public; host may edit only in lobby."
+    },
+    "doppel": {
+      "type": "boolean",
+      "description": "doppel: public; host may edit only in lobby."
+    },
+    "daySeconds": {
+      "type": "integer",
+      "minimum": 30,
+      "maximum": 900,
+      "description": "daySeconds: public; host may edit only in lobby."
+    },
+    "speed": {
+      "type": "number",
+      "minimum": 0.1,
+      "maximum": 2,
+      "description": "speed: public; host may edit only in lobby."
+    },
+    "preset": {
+      "type": "string",
+      "enum": [
+        "beginner",
+        "classic",
+        "chaos"
+      ],
+      "description": "preset: public; host may edit only in lobby."
+    },
+    "deck": {
+      "anyOf": [
+        {
+          "maxItems": 13,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "doppel",
+              "wolf",
+              "minion",
+              "mason",
+              "seer",
+              "robber",
+              "troublemaker",
+              "drunk",
+              "insomniac",
+              "hunter",
+              "tanner",
+              "villager"
+            ]
+          }
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "deck: public; host may edit only in lobby."
+    },
+    "allowed": {
+      "maxItems": 12,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "doppel",
+          "wolf",
+          "minion",
+          "mason",
+          "seer",
+          "robber",
+          "troublemaker",
+          "drunk",
+          "insomniac",
+          "hunter",
+          "tanner",
+          "villager"
+        ]
+      },
+      "description": "allowed: public; host may edit only in lobby."
+    },
+    "chat": {
+      "type": "string",
+      "enum": [
+        "off",
+        "day",
+        "always"
+      ],
+      "description": "chat: public; host may edit only in lobby."
+    },
+    "filter": {
+      "type": "boolean",
+      "description": "filter: public; host may edit only in lobby."
+    },
+    "discord": {
+      "type": "string",
+      "maxLength": 250,
+      "description": "discord: public; host may edit only in lobby."
+    },
+    "rotateHost": {
+      "type": "boolean",
+      "description": "rotateHost: public; host may edit only in lobby."
+    }
+  },
+  "required": [
+    "ruleset",
+    "allowSkip",
+    "doppel",
+    "daySeconds",
+    "speed",
+    "preset",
+    "deck",
+    "allowed",
+    "chat",
+    "filter",
+    "discord",
+    "rotateHost"
+  ],
+  "additionalProperties": false,
+  "title": "RoomSettings",
+  "description": "Visibility: public; host may edit only in lobby. See ARCHITECTURE.md."
+}

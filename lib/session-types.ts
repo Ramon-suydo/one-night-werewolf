@@ -1,0 +1,16 @@
+import type {Card,GameEvent,Report,Result,Role,RoleAction,Round,Settings} from '@/engine';
+import type {Phase} from '@/rules/director';
+import type {Appearance} from './social';
+export type RoomSettings=Settings&{preset:'beginner'|'classic'|'chaos';deck:Role[]|null;allowed:Role[];chat:'off'|'day'|'always';filter:boolean;discord:string;rotateHost:boolean};
+export type PlayerPublic={id:string;name:string;appearance:Appearance;connected:boolean;spectator:boolean;left:boolean;ready:boolean;revealed:boolean};
+export type PlayerSecret=Omit<PlayerPublic,'connected'>&{tokenHash:string;joined:number;seen:number};
+export type Claim={id:string;player:string;role:Role;at:number};
+export type PublicChat={id:string;player:string;text:string;at:number};
+export const REACTIONS=['wave','point','slam','shrug','gasp','laugh','who me','thumbs up','sweat','accuse','facepalm'] as const;
+export type Reaction={id:string;player:string;kind:typeof REACTIONS[number];target?:string;at:number};
+export type Score={wins:number;streak:number;banished:number;bluffs:number};
+export type Replay={round:number;order:string[];names:Record<string,string>;events:GameEvent[];result:Result;original:Card[]};
+export type SessionRoom={code:string;host:string;phase:Phase;round:number;revision:number;updated:number;phaseStarted:number;deadline:number|null;nightStart:number|null;settings:RoomSettings;players:PlayerSecret[];roundSecrets?:Round;rolesInPlay:Role[];revealed:string[];dawnReady:string[];dayReady:string[];locked:string[];nightLocks:Record<string,number[]>;undo:Record<string,{until:number;step:number;previous?:RoleAction}>;claims:Claim[];chat:PublicChat[];emotes:Reaction[];scores:Record<string,Score>;history:Replay[];receipts:string[]};
+export type GameState={code:string;host:string;phase:Phase;round:number;phaseStarted:number;deadline:number|null;nextWakeAt:number|null;step:number|null;stepDeadline:number|null;caption:string;players:PlayerPublic[];rolesInPlay:Role[];settings:RoomSettings;readyCount:number;connectedCount:number;lockedCount:number;claims:Claim[];chat:PublicChat[];emotes:Reaction[];scores:Record<string,Score>;result:Result|null;order:string[];original:Card[]|null;ballots:Record<string,string|null>|null};
+export type PlayerPrivate={id:string;role:Role|null;card?:Card;copiedRole?:Role;awake:boolean;step:number|null;locked:boolean;action?:RoleAction;report:Report[];undoUntil:number|null;vote:string|null;voted:boolean;revealed:boolean};
+export type Snapshot={public:GameState;private:PlayerPrivate;serverNow:number;revision:number};

@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": [
+        "deal",
+        "copy",
+        "peek",
+        "swap",
+        "step",
+        "vote",
+        "shot"
+      ],
+      "description": "kind: server until Results; authenticated room members afterward."
+    },
+    "step": {
+      "type": "number",
+      "description": "step: server until Results; authenticated room members afterward."
+    },
+    "at": {
+      "type": "number",
+      "description": "at: server until Results; authenticated room members afterward."
+    },
+    "actor": {
+      "type": "string",
+      "description": "actor: server until Results; authenticated room members afterward."
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "description": "targets: server until Results; authenticated room members afterward."
+    },
+    "before": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "doppel",
+              "wolf",
+              "minion",
+              "mason",
+              "seer",
+              "robber",
+              "troublemaker",
+              "drunk",
+              "insomniac",
+              "hunter",
+              "tanner",
+              "villager"
+            ]
+          },
+          "copy": {
+            "type": "string",
+            "enum": [
+              "doppel",
+              "wolf",
+              "minion",
+              "mason",
+              "seer",
+              "robber",
+              "troublemaker",
+              "drunk",
+              "insomniac",
+              "hunter",
+              "tanner",
+              "villager"
+            ]
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "additionalProperties": false
+      },
+      "description": "before: server until Results; authenticated room members afterward."
+    },
+    "after": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "doppel",
+              "wolf",
+              "minion",
+              "mason",
+              "seer",
+              "robber",
+              "troublemaker",
+              "drunk",
+              "insomniac",
+              "hunter",
+              "tanner",
+              "villager"
+            ]
+          },
+          "copy": {
+            "type": "string",
+            "enum": [
+              "doppel",
+              "wolf",
+              "minion",
+              "mason",
+              "seer",
+              "robber",
+              "troublemaker",
+              "drunk",
+              "insomniac",
+              "hunter",
+              "tanner",
+              "villager"
+            ]
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "additionalProperties": false
+      },
+      "description": "after: server until Results; authenticated room members afterward."
+    }
+  },
+  "required": [
+    "kind",
+    "step",
+    "at"
+  ],
+  "additionalProperties": false,
+  "title": "GameEvent",
+  "description": "Visibility: server until Results; authenticated room members afterward. See ARCHITECTURE.md."
+}
