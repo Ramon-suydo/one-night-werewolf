@@ -38,7 +38,10 @@ export function advanceSession(room:SessionRoom,now:number,seed=1){
   }
   if(room.phase==='resolution'){recordResult(room);transition(room,'result',room.phaseStarted);continue;}
   if(room.phase==='result'&&due){
+   for(const p of room.players.filter(p=>p.waiting&&!p.left).sort((a,b)=>a.joined-b.joined)){if(room.players.filter(p=>!p.left&&!p.spectator).length>=10)break;p.spectator=false;p.waiting=false;}
    const seats=room.players.filter(p=>!p.left&&!p.spectator);if(seats.length<3||!seats.some(p=>connected(p,now))){transition(room,'lobby',room.deadline!);room.deadline=null;return}
+   if(room.settings.preset==='beginner'&&seats.length>9){transition(room,'lobby',room.deadline!);room.deadline=null;return}
+   if(room.settings.deck&&room.settings.deck.length!==seats.length+3)room.settings.deck=null;
    if(room.settings.rotateHost){const current=seats.findIndex(p=>p.id===room.host);room.host=seats[(current+1)%seats.length].id;}
    startSessionRound(room,room.deadline!,seed+room.round);continue;
   }

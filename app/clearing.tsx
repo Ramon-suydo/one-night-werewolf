@@ -3,12 +3,14 @@
 import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as T from 'three';
-import {CLOAKS} from '@/lib/social';
+import {CLOAKS,sanitizeAppearance} from '@/lib/social';
 import type {SceneState} from '@/lib/scene';
-import { seat, type MotionBus } from '@/lib/motion';
+import { seat,makeMotion,type MotionBus } from '@/lib/motion';
 import type {Card} from '@/engine';
 import {Card3D} from '@/components/Card3D';
 import {TitleWolf} from './title-wolf';
+import {WorldLandmarks} from './world-landmarks';
+import {nearestLandmark} from '@/lib/landmarks';
 import { NIGHT,MOODS } from '@/lib/theme.mjs';
 import { RULES } from '@/lib/rules';
 import { introCamera } from '@/lib/vfx';
@@ -123,8 +125,8 @@ function Landmarks({ day, reduced }: { day: React.RefObject<number>; reduced: bo
     if (flowers.current) flowers.current.scale.setScalar(.3 + .7 * day.current);
   });
   return <>
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[11, .04, -8]}><circleGeometry args={[3.8, 12]} /><meshLambertMaterial color="#2f4a7a" flatShading /></mesh><mesh ref={pond} rotation={[-Math.PI / 2, 0, 0]} position={[11, .06, -8]}><ringGeometry args={[1.3, 1.4, 16]} /><meshBasicMaterial color="#e8e4ff" transparent opacity={.25} /></mesh><mesh rotation={[-Math.PI / 2, 0, 0]} position={[11, .07, -8]}><circleGeometry args={[.6, 8]} /><meshBasicMaterial color="#e8e4ff" transparent opacity={.5} /></mesh>
-    <group position={[-12, 0, -13]}><Box p={[0, 1.5, 0]} size={[4, 3, 3]} color="#5a3a24" /><mesh position={[0, 3.6, 0]} rotation={[0, Math.PI / 4, 0]}><coneGeometry args={[3.2, 2, 4]} /><Material color="#7a2f3f" /></mesh><Box p={[.7, 1.7, 1.52]} size={[1, .9, .05]} color="#ffd35a" glow /><Box p={[-.9, 1, 1.52]} size={[.8, 2, .08]} color="#3a2418" /><pointLight position={[.7, 1.7, 2]} color="#ffd35a" intensity={.5} distance={6} /></group>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[8, .04, -6]}><circleGeometry args={[3.8, 12]} /><meshLambertMaterial color="#2f4a7a" flatShading /></mesh><mesh ref={pond} rotation={[-Math.PI / 2, 0, 0]} position={[8, .06, -6]}><ringGeometry args={[1.3, 1.4, 16]} /><meshBasicMaterial color="#e8e4ff" transparent opacity={.25} /></mesh><mesh rotation={[-Math.PI / 2, 0, 0]} position={[8, .07, -6]}><circleGeometry args={[.6, 8]} /><meshBasicMaterial color="#e8e4ff" transparent opacity={.5} /></mesh>
+    <group position={[-8, 0, -9]}><Box p={[0, 1.5, 0]} size={[4, 3, 3]} color="#5a3a24" /><mesh position={[0, 3.6, 0]} rotation={[0, Math.PI / 4, 0]}><coneGeometry args={[3.2, 2, 4]} /><Material color="#7a2f3f" /></mesh><Box p={[.7, 1.7, 1.52]} size={[1, .9, .05]} color="#ffd35a" glow /><Box p={[-.9, 1, 1.52]} size={[.8, 2, .08]} color="#3a2418" /><pointLight position={[.7, 1.7, 2]} color="#ffd35a" intensity={.5} distance={6} /></group>
     {[-1, 1].map(i => <group key={i} position={[i * 8, 0, 2]}><Box p={[0, 1.6, 0]} size={[.15, 3.2, .15]} color="#5a3a24" /><Box p={[0, 3, 0]} size={[.45, .6, .45]} color="#ffd35a" glow /><pointLight color="#ffb96a" position={[0, 3, 0]} intensity={.35} distance={7} /><mesh position={[0, 3, 0]}><sphereGeometry args={[.65, 6, 4]} /><meshBasicMaterial color="#ffd35a" transparent opacity={.05} /></mesh></group>)}
     {[-1, 0, 1].map((i, j) => <group key={i} position={[i * 3, 0, -10 - j % 2]}><mesh position={[0, 1, 0]} scale={[.8, 1.7, .5]} rotation={[0, j, .1]}><dodecahedronGeometry args={[.7, 0]} /><Material color="#55506a" /></mesh><Box p={[0, 1, .4]} size={[.08, .5, .04]} color="#7b4fbf" glow /><Box p={[0, 1.1, .4]} rotation={[0, 0, .6]} size={[.4, .06, .04]} color="#7b4fbf" glow /></group>)}
     <group position={[8, 0, 9]} rotation={[0, .5, .15]}><Box p={[0, .3, 0]} size={[4, .6, .65]} color="#5a3a24" /></group>
@@ -136,16 +138,18 @@ function Landmarks({ day, reduced }: { day: React.RefObject<number>; reduced: bo
 }
 function Character({ player, index, count, view, bus, reduced, elapsed }: { player: NonNullable<SceneState>['players'][number]; index: number; count: number; view: SceneState; bus: MotionBus; reduced: boolean; elapsed: React.RefObject<number> }) {
   const root = useRef<T.Group>(null); const body = useRef<T.Mesh>(null); const head = useRef<T.Group>(null); const left = useRef<T.Group>(null); const right = useRef<T.Group>(null); const arms = useRef<T.Group>(null); const cape = useRef<T.Mesh>(null); const dust = useRef<T.Mesh>(null);
-  const home = useMemo(() => seat(index, count), [index, count]); const color = CLOAKS[player.appearance.cloak];
+  const arrived=useRef(performance.now());
+  const home = useMemo(() => seat(index, count), [index, count]); const color=player.connected?CLOAKS[player.appearance.cloak]:'#252739';
   useEffect(() => { if (root.current) root.current.position.set(...home); if (player.id === view.me) { bus.local.x = home[0]; bus.local.z = home[2]; } }, [view.phase, view.round, home, player.id, view.me, bus]);
   useFrame(({ clock, camera }, dt) => {
     const g = root.current; if (!g) return; const t = reduced ? 0 : clock.elapsedTime; const previous = g.position.clone();
-    if (view.phase === 'day') {
+    if (['day','lobby','vote'].includes(view.phase)) {
       if (player.id === view.me) { g.position.x = bus.local.x; g.position.z = bus.local.z; }
       else { const pos = bus.remote.get(player.id); if (pos) g.position.lerp(new T.Vector3(pos.x, 0, pos.z), 1 - Math.exp(-dt * 12)); }
     } else g.position.lerp(new T.Vector3(...home), 1 - Math.exp(-dt * 10));
+    if(view.phase==='lobby'&&!reduced&&performance.now()-arrived.current<1400){const p=Math.min(1,(performance.now()-arrived.current)/1400),distance=1+2*(1-p)*(1-p);g.position.set(home[0]*distance,0,home[2]*distance)}
     const dx = g.position.x - previous.x, dz = g.position.z - previous.z; const moving = Math.hypot(dx, dz) > .001;
-    const sleep = view.phase === 'night'; const stance = sleep ? .72 : 1;
+    const sleep=view.phase==='night'||!player.connected;const stance=sleep?.72:view.phase==='lobby'&&!player.ready?.78:1;
     if (moving) g.rotation.y = Math.atan2(dx, dz); else if (view.phase !== 'day') g.rotation.y = Math.atan2(-g.position.x, -g.position.z);
     if (body.current) body.current.position.y = stance + Math.sin(t * (moving ? 12 : 2) + index) * .025;
     if (head.current) { head.current.position.y = stance + .8; head.current.rotation.x = sleep ? .2 + Math.sin(t + index) * .04 : Math.sin(t * .7 + index) * .04; }
@@ -160,7 +164,7 @@ function Character({ player, index, count, view, bus, reduced, elapsed }: { play
     const tag = document.getElementById('tag-' + player.id);
     if (tag) { const pos = new T.Vector3(g.position.x, 3.1, g.position.z).project(camera); tag.style.transform = `translate(-50%,-100%) translate(${(pos.x * .5 + .5) * innerWidth}px,${(-pos.y * .5 + .5) * innerHeight}px)`; tag.style.visibility = pos.z < 1 ? 'visible' : 'hidden'; }
   });
-  const hat = player.appearance.hat; const face = player.appearance.face; const sleeping = view.phase === 'night';const expression=player.expression;
+  const hat = player.appearance.hat; const face = player.appearance.face; const sleeping=view.phase==='night'||!player.connected;const expression=player.expression;
   return <group ref={root} position={home} onClick={e=>{e.stopPropagation();bus.onSelect?.(player.id)}}>
     <mesh ref={body} position={[0, 1, 0]} castShadow><cylinderGeometry args={[.35, .5, 1, 6]} /><Material color={color} /></mesh>
     <mesh ref={cape} position={[0, 1, -.28]}><coneGeometry args={[.48, 1, 5, 1, true, 0, Math.PI]} /><Material color={color} /></mesh>
@@ -173,6 +177,12 @@ function Character({ player, index, count, view, bus, reduced, elapsed }: { play
     <group ref={arms} position={[0, 1.25, 0]}>{[-1, 1].map(x => <Box key={x} p={[x * .42, -.15, 0]} rotation={[0, 0, x * .1]} size={[.16, .6, .18]} color={color} />)}</group>
     <mesh ref={dust} position={[0, .08, .25]} visible={false}><icosahedronGeometry args={[.35, 0]} /><meshBasicMaterial color="#8a8fa8" transparent opacity={.15} /></mesh>
   </group>;
+}
+function PondPreview({reduced}:{reduced:boolean}){
+ const[appearance,setAppearance]=useState({cloak:0,hat:0,face:0}),[local]=useState(makeMotion),elapsed=useRef(0);
+ useEffect(()=>{try{setAppearance(sanitizeAppearance(JSON.parse(localStorage.getItem('werewolf-profile')||'{}')))}catch{}const change=(e:Event)=>setAppearance(sanitizeAppearance((e as CustomEvent).detail));window.addEventListener('werewolf-preview',change);return()=>window.removeEventListener('werewolf-preview',change)},[]);
+ const preview:SceneState={code:'',host:'preview',round:0,phase:'lobby',ruleset:'solo',me:'preview',players:[{id:'preview',name:'You',appearance,connected:true,ready:true,expression:'neutral'}],order:['preview'],lockedCount:0,allowSkip:false,emotes:[],chat:[],claims:[],reveal:null};
+ return <group position={[8,0,-.5]} rotation={[0,Math.PI,0]}><Character player={preview.players[0]} index={0} count={1} view={preview} bus={local} reduced={reduced} elapsed={elapsed}/></group>;
 }
 function SceneCard({index,view,dealElapsed,reduced,bus,faces}:{index:number;view:SceneState;elapsed:React.RefObject<number>;dealElapsed:React.RefObject<number>;reduced:boolean;bus:MotionBus;faces:Record<string,Card>}){
  const group=useRef<T.Group>(null),[up,setUp]=useState(false),target=useMemo(()=>new T.Vector3(),[]);const count=view.order.length,id=index<count?view.order[index]:'center-'+(index-count),face=faces[id];
@@ -189,13 +199,14 @@ function World({ view, bus, faces={}, low, setLow, reduced }: Props & { low: boo
   const stars = useRef<T.Points>(null); const ring = useRef<T.Mesh>(null); const trail = useRef<T.Mesh>(null); const projectile = useRef<T.Mesh>(null);
   const start = useRef(0); const elapsed = useRef(0); const keys = useRef<Record<string, boolean>>({}); const privateTarget = useRef<{ id: string; until: number } | null>(null); const performanceStats = useRef({ frames: 0, time: 0 });
   const dealStarted = useRef(0); const dealElapsed = useRef(0);
+  const wasReady=useRef(false);
   const nightColor = useMemo(() => new T.Color(COLORS.night), []); const dawnColor = useMemo(() => new T.Color(COLORS.dawn), []);
   const starPositions = useMemo(() => new Float32Array(Array.from({ length: 260 }, (_, i) => { const a = random(i) * 6.28, e = random(i + 500) * 1.2 + .15; return [Math.cos(a) * Math.cos(e) * 120, Math.sin(e) * 120, Math.sin(a) * Math.cos(e) * 120]; }).flat()), []);
   useEffect(() => { scene.fog = new T.Fog(COLORS.night, 28, 80); gl.shadowMap.type = T.BasicShadowMap; return () => { scene.fog = null; }; }, [scene, gl]);
   useEffect(() => { start.current = performance.now() / 1000; }, [view?.phase, view?.round]);
   useEffect(() => { dealStarted.current = performance.now() / 1000; }, [view?.round]);
   useEffect(() => {
-    const down = (e: KeyboardEvent) => { if ((e.target as HTMLElement).closest('input,textarea,select,[contenteditable]')) return; const key = e.key.toLowerCase(); if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) e.preventDefault(); keys.current[key] = true; if (key === 'e') { bus.focus = bus.interaction; window.dispatchEvent(new Event('werewolf-act')); } };
+    const down = (e: KeyboardEvent) => { if ((e.target as HTMLElement).closest('input,textarea,select,[contenteditable]')) return; const key = e.key.toLowerCase(); if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) e.preventDefault(); keys.current[key] = true; if(key==='e'&&bus.interaction){if(bus.interaction.startsWith('prop:'))bus.onLandmark?.(bus.interaction.slice(5));else{bus.focus=bus.interaction;bus.onSelect?.(bus.interaction)}} };
     const up = (e: KeyboardEvent) => { keys.current[e.key.toLowerCase()] = false; };
     const blur = () => { keys.current = {}; bus.stick = { x: 0, z: 0 }; };
     const choice = (e: Event) => { const detail = (e as CustomEvent<{ target: string }>).detail; privateTarget.current = { id: detail.target, until: performance.now() / 1000 + 2 }; bus.focus = detail.target; };
@@ -219,15 +230,18 @@ function World({ view, bus, faces={}, low, setLow, reduced }: Props & { low: boo
     if (stars.current) (stars.current.material as T.PointsMaterial).opacity = 1 - day.current;
     skyBands.current?.children.forEach((mesh, i) => { const m = mesh as T.Mesh; (m.material as T.MeshBasicMaterial).color.lerpColors(new T.Color('#120a2a').lerp(new T.Color('#2a1a52'), i / 11), new T.Color('#3b3f8a').lerp(new T.Color('#ffb27a'), i / 11), day.current); });
     const players = view?.players || []; const my = Math.max(0, players.findIndex(p => p.id === view?.me));
-    if (phase === 'day') {
+    if (['day','lobby','vote'].includes(phase)&&bus.exploring) {
       let x = Number(keys.current.d || keys.current.arrowright || false) - Number(keys.current.a || keys.current.arrowleft || false) + bus.stick.x;
       let z = Number(keys.current.s || keys.current.arrowdown || false) - Number(keys.current.w || keys.current.arrowup || false) + bus.stick.z;
       const length = Math.hypot(x, z); if (length > 1) { x /= length; z /= length; }
       bus.local.x += x * dt * 5; bus.local.z += z * dt * 5;
       const r = Math.hypot(bus.local.x, bus.local.z); const radius = T.MathUtils.clamp(r, 2, 13); if (r) { bus.local.x *= radius / r; bus.local.z *= radius / r; }
     }
-    const positions = players.map((p, i) => { if (phase === 'day') { if (p.id === view?.me) return new T.Vector3(bus.local.x, 0, bus.local.z); const remote = bus.remote.get(p.id); if (remote) return new T.Vector3(remote.x, 0, remote.z); } return new T.Vector3(...seat(i, players.length)); });
-    bus.interaction = null; let best = 2.6; positions.forEach((pos, i) => { if (i === my) return; const distance = pos.distanceTo(new T.Vector3(bus.local.x, 0, bus.local.z)); if (phase === 'day' && distance < best) { best = distance; bus.interaction = players[i].id; } });
+    const positions = players.map((p, i) => { if (['day','lobby','vote'].includes(phase)) { if (p.id === view?.me) return new T.Vector3(bus.local.x, 0, bus.local.z); const remote = bus.remote.get(p.id); if (remote) return new T.Vector3(remote.x, 0, remote.z); } return new T.Vector3(...seat(i, players.length)); });
+    bus.interaction = null; let best = 2.6; positions.forEach((pos, i) => { if (i === my) return; const distance = pos.distanceTo(new T.Vector3(bus.local.x, 0, bus.local.z)); if (['day','lobby','vote'].includes(phase) && distance < best) { best = distance; bus.interaction = players[i].id; } });
+    const landmark=nearestLandmark(bus.local.x,bus.local.z,phase,view?.host===view?.me);if(landmark)bus.interaction='prop:'+landmark.id;
+    const hint=document.getElementById('world-interact');if(hint){hint.style.display=bus.interaction?'block':'none';hint.textContent=landmark?'E · '+landmark.label:'E · Talk to this player';}
+    if(view&&phase==='lobby'){const ready=Math.hypot(bus.local.x+2,bus.local.z-4)<1;if(ready!==wasReady.current){wasReady.current=ready;bus.onReady?.(ready)}}
     if (ring.current) { ring.current.visible = !!bus.interaction; const at = positions[players.findIndex(p => p.id === bus.interaction)]; if (at) ring.current.position.set(at.x, .06, at.z); ring.current.scale.setScalar(reduced ? 1 : 1 + Math.sin(clock.elapsedTime * 6) * .08); }
     const focus = bus.focus?.startsWith('center-') ? new T.Vector3((Number(bus.focus.slice(7)) - 1) * 1.2, 1, -3.4) : positions[players.findIndex(p => p.id === bus.focus)];
     let target = focus?.clone() || new T.Vector3(0, 1.2, 0); const desired = new T.Vector3(target.x, 9.5, target.z + 17);
@@ -237,6 +251,7 @@ function World({ view, bus, faces={}, low, setLow, reduced }: Props & { low: boo
       else if (phase === 'night' && !focus) desired.x += Math.sin(clock.elapsedTime * .1) * 1.5;
       if (phase === 'result' && view?.reveal) { const index = Math.floor((elapsed.current - .7) / .45); if (index >= 0 && index < positions.length) { target = positions[index].clone().add(new T.Vector3(0, 2, 0)); desired.copy(target).add(new T.Vector3(3, 4, 7)); if (view.reveal.banished.includes(players[index].id)) desired.x += Math.sin(elapsed.current * 70) * .09; } }
     }
+    if(!view&&bus.mirror){desired.set(8,3.5,1);target.set(8,-.2,-6);}
     if(bus.introStarted!==null){const shot=introCamera((performance.now()-bus.introStarted)/1000);desired.set(shot.x,shot.y,shot.z);target.set(0,shot.targetY,0);}
     const slam=view?.emotes.find(e=>e.kind==='slam'&&Date.now()-e.at<400);if(slam&&!reduced){desired.x+=Math.sin(clock.elapsedTime*80)*.09;desired.y+=Math.cos(clock.elapsedTime*70)*.05;}
     if(phase==='night'&&positions[my]){const at=positions[my];desired.set(at.x, bus.awake?2.8:1.3,at.z);target.set(0,bus.awake?1:.1,-1);}
@@ -253,7 +268,7 @@ function World({ view, bus, faces={}, low, setLow, reduced }: Props & { low: boo
   return <><ambientLight ref={ambient} color="#8878c8" intensity={.4} /><directionalLight ref={moonlight} color="#b8b0ff" intensity={.6} position={[-30, 50, -40]} />
     <group ref={skyBands}>{Array.from({ length: 12 }, (_, i) => <mesh key={i} position={[0, i * 9 - 8, -130]}><planeGeometry args={[340, 9]} /><meshBasicMaterial color="#140d2e" fog={false} /></mesh>)}</group>
     <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><circleGeometry args={[36, 12]} /><Material color={COLORS.ground} /></mesh><mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .02, 0]} receiveShadow><circleGeometry args={[9, 12]} /><Material color={COLORS.clearing} /></mesh>
-    <Mountains />{!view&&<TitleWolf reduced={reduced}/>}<VoteStones view={view} bus={bus} reduced={reduced}/><WorldVFX view={view} low={low||bus.batterySaver} reduced={reduced}/>
+    <Mountains /><WorldLandmarks reduced={reduced}/>{!view&&<><TitleWolf reduced={reduced}/><PondPreview reduced={reduced}/></>}<VoteStones view={view} bus={bus} reduced={reduced}/><WorldVFX view={view} low={low||bus.batterySaver} reduced={reduced}/>
     <Vegetation low={low} reduced={reduced} /><Landmarks day={day} reduced={reduced} /><Fire low={low} reduced={reduced} /><Particles low={low} reduced={reduced} day={day} winning={winning} />
     <points ref={stars}><bufferGeometry><bufferAttribute attach="attributes-position" args={[starPositions, 3]} /></bufferGeometry><pointsMaterial color="#ffffff" size={2} sizeAttenuation={false} transparent fog={false} /></points><mesh ref={orb}><sphereGeometry args={[4, 8, 6]} /><meshBasicMaterial color="#e8e4ff" fog={false} /></mesh>
     <mesh position={[0, .15, -3.4]}><cylinderGeometry args={[1.8, 2, .3, 6]} /><Material color="#55506a" /></mesh>
@@ -272,6 +287,6 @@ export default function Clearing(props: Props) {
   useEffect(()=>{if(!gpu.available)onFallback();const change=(e:Event)=>setTier((e as CustomEvent<QualityTier>).detail);window.addEventListener('werewolf-quality',change);return()=>window.removeEventListener('werewolf-quality',change)},[gpu.available,onFallback]);
   const tags = props.view?.players || []; const view = props.view;
   return <div className="clearing" aria-label="3D campfire clearing" data-testid="clearing-3d"><Boundary fallback={props.onFallback}><Canvas frameloop='demand' camera={{ fov: 50, position: [0, 12, 17], near: .1, far: 300 }} dpr={scale} shadows={!low} gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }} onCreated={({ gl }) => { gl.domElement.addEventListener('webglcontextlost', () => fallback.current(), { once: true });props.onReady?.(); }}><RenderLoop fps={props.bus.batterySaver?30:quality.fps} reduced={reduced}/><World {...props} low={low} setLow={() => { props.bus.quality = 'low'; setTier(q=>TIERS[Math.max(0,TIERS.indexOf(q)-1)]); }} reduced={reduced} /></Canvas></Boundary>
-    <div className="world-tags">{view?.phase==='vote'&&view.allowSkip&&<button className="center-tag skip-stone" id="skip-stone" onClick={()=>props.bus.onSelect?.('skip')}>Skip stone</button>}{view&&['night','dealing','result'].includes(view.phase)&&[0,1,2].map(i=><button className="center-tag" id={'center-tag-'+i} key={i} onClick={()=>props.bus.onSelect?.('center-'+i)}>{['Left','Middle','Right'][i]}</button>)}{tags.map(p => { const emote = view?.emotes.find(e => e.player === p.id); const ping = view?.emotes.some(e => e.target === p.id); const message = view?.chat.filter(m => m.player === p.id && !props.muted.includes(p.id)).at(-1); return <div className="world-tag" id={'tag-' + p.id} key={p.id}>{ping && <span className="point-ping">▼</span>}{emote && <span className="emote-bubble">{({slam:'✹',accuse:'➜',facepalm:'…',sweat:'💧','who me':'me?', wave: '✋', point: '➜', shrug: '¯\_(ツ)_/¯', laugh: 'ha!', gasp: '!', 'thumbs up': '👍' })[emote.kind]}</span>}{message && Date.now() - message.at < 5500 && <span className="speech-bubble">{message.text}</span>}<button disabled={(view?.phase==='night'||view?.phase==='vote')&&p.id===view?.me} onClick={() => { props.bus.focus = p.id;props.bus.onSelect?.(p.id); }}>{p.name}{p.id===view?.me?' · you':''}{view?.claims.filter(c=>c.player===p.id).slice(-1).map(c=><small className="claim-badge" key={c.at}>claims {RULES[c.role].name}</small>)}</button>{props.bus.selected.includes(p.id)&&view?.phase==='day'&&<div className="character-actions"><button onClick={()=>props.bus.onReact?.('point',p.id)}>Point</button><button onClick={()=>props.bus.onMenu?.('Notes')}>Claim</button><button onClick={()=>props.bus.onMenu?.('Notes')}>Note</button><button onClick={()=>props.bus.onReactions?.()}>Emote</button></div>}</div>; })}</div><div className="vignette" />
+    <div className="world-tags">{view?.phase==='vote'&&view.allowSkip&&<button className="center-tag skip-stone" id="skip-stone" onClick={()=>props.bus.onSelect?.('skip')}>Skip stone</button>}{view&&['night','dealing','result'].includes(view.phase)&&[0,1,2].map(i=><button className="center-tag" id={'center-tag-'+i} key={i} onClick={()=>props.bus.onSelect?.('center-'+i)}>{['Left','Middle','Right'][i]}</button>)}{tags.map(p => { const emote = view?.emotes.find(e => e.player === p.id); const ping = view?.emotes.some(e => e.target === p.id); const message = view?.chat.filter(m => m.player === p.id && !props.muted.includes(p.id)).at(-1); return <div className="world-tag" id={'tag-' + p.id} key={p.id}>{ping && <span className="point-ping">▼</span>}{emote && <span className="emote-bubble">{({slam:'✹',accuse:'➜',facepalm:'…',sweat:'💧','who me':'me?', wave: '✋', point: '➜', shrug: '¯\_(ツ)_/¯', laugh: 'ha!', gasp: '!', 'thumbs up': '👍' })[emote.kind]}</span>}{message && Date.now() - message.at < 5500 && <span className="speech-bubble">{message.text}</span>}<button disabled={(view?.phase==='night'||view?.phase==='vote')&&p.id===view?.me} onClick={() => { props.bus.focus = p.id;props.bus.onSelect?.(p.id); }}>{p.name}{p.id===view?.me?' · you':''}{view?.claims.filter(c=>c.player===p.id).slice(-1).map(c=><small className="claim-badge" key={c.at}>claims {RULES[c.role].name}</small>)}</button>{props.bus.selected.includes(p.id)&&view?.phase==='day'&&<div className="character-actions"><button onClick={()=>props.bus.onReact?.('point',p.id)}>Point</button><button onClick={()=>props.bus.onMenu?.('Notes')}>Claim</button><button onClick={()=>props.bus.onMenu?.('Notes')}>Note</button><button onClick={()=>props.bus.onReactions?.()}>Emote</button></div>}</div>; })}</div><div className="vignette" />{view&&['day','lobby','vote'].includes(view.phase)&&<><button id="world-interact" className="world-interact" onClick={()=>{const target=props.bus.interaction;if(target?.startsWith('prop:'))props.bus.onLandmark?.(target.slice(5));else if(target)props.bus.onSelect?.(target)}}>Interact</button><div className="world-stick" role="application" aria-label="Movement thumbstick" onPointerDown={e=>e.currentTarget.setPointerCapture(e.pointerId)} onPointerMove={e=>{if(!e.currentTarget.hasPointerCapture(e.pointerId))return;const r=e.currentTarget.getBoundingClientRect();props.bus.stick.x=Math.max(-1,Math.min(1,(e.clientX-r.left-r.width/2)/40));props.bus.stick.z=Math.max(-1,Math.min(1,(e.clientY-r.top-r.height/2)/40))}} onPointerUp={()=>{props.bus.stick={x:0,z:0}}} onPointerCancel={()=>{props.bus.stick={x:0,z:0}}}><span>✥</span></div></>}
   </div>;
 }

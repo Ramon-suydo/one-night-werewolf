@@ -20,19 +20,20 @@ export async function executeSession(body:SessionRequest,token:string){
  const hash=sessionHash(token),now=Date.now(),cmd=body.command,receipt=hash+body.requestId;
  if(cmd.type==='create'){
   for(let attempt=0;attempt<20;attempt++){const bytes=createHash('sha256').update(receipt+attempt).digest(),alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ',code=[...bytes.subarray(0,4)].map(b=>alphabet[b%24]).join(''),old=await readSession(code);if(old?.receipts.includes(receipt))return sessionSnapshot(old,old.players.find(p=>p.tokenHash===hash)!.id);if(old)continue;
-   const player=newPlayer(cmd.name,hash,undefined,now),room:SessionRoom={code,host:player.id,phase:'lobby',round:0,revision:0,updated:now,phaseStarted:now,deadline:null,nightStart:null,settings:{...DEFAULT_SETTINGS,preset:'classic',deck:null,allowed:[...ROLES],chat:'off',filter:true,discord:'',rotateHost:false},players:[player],rolesInPlay:[],revealed:[],dawnReady:[],dayReady:[],locked:[],nightLocks:{},undo:{},claims:[],chat:[],emotes:[],scores:{},history:[],receipts:[receipt]};if(await saveSession(room,-1))return sessionSnapshot(room,player.id);
+   const player=newPlayer(cmd.name,hash,undefined,now);player.appearance=sanitizeAppearance(cmd.appearance);const room:SessionRoom={code,host:player.id,phase:'lobby',round:0,revision:0,updated:now,phaseStarted:now,deadline:null,nightStart:null,settings:{...DEFAULT_SETTINGS,preset:'classic',deck:null,allowed:[...ROLES],chat:'off',filter:true,discord:'',rotateHost:false},players:[player],rolesInPlay:[],revealed:[],dawnReady:[],dayReady:[],locked:[],nightLocks:{},undo:{},claims:[],chat:[],emotes:[],scores:{},history:[],receipts:[receipt]};if(await saveSession(room,-1))return sessionSnapshot(room,player.id);
   }throw new GameError('The fire could not be lit. Try again.',503);
  }
  assert(body.code,'Enter a four-letter room code.');
  for(let attempt=0;attempt<20;attempt++){
   const room=await readSession(body.code);assert(room,'No fire has that code.',404);assert(now-room.updated<86400000,'This fire expired. Create a new room.',410);const expected=room.revision,before=comparable(room);let player=room.players.find(p=>p.tokenHash===hash);
-  if(cmd.type==='join'&&!player){assert(room.players.filter(p=>!p.left&&!p.spectator).length<10||cmd.spectator,'Ten players are already seated. Join as a spectator.');player=newPlayer(cmd.name,hash,room,now);player.spectator=!!cmd.spectator||room.phase!=='lobby';room.players.push(player)}
+  if(cmd.type==='join'&&!player){assert(room.players.filter(p=>!p.left&&!p.spectator).length<10||cmd.spectator||room.phase!=='lobby','Ten players are already seated. Join as a spectator.');player=newPlayer(cmd.name,hash,room,now);player.appearance=sanitizeAppearance(cmd.appearance);player.spectator=!!cmd.spectator||room.phase!=='lobby';player.waiting=!cmd.spectator&&room.phase!=='lobby';room.players.push(player)}
   assert(player,'Join this fire first.',403);assert(!player.left||cmd.type==='join','Your seat has left this fire.',403);if(cmd.type==='join'&&player.left){assert(room.phase==='lobby','Join the next round.',403);player.left=false;player.joined=now}
   player.seen=now;advanceSession(room,now,randomInt(0x7fffffff));const id=player.id,g=room.roundSecrets;
   if(!room.receipts.includes(receipt)){
    const inGame=!['lobby'].includes(room.phase);if(['start','settings','kick','transfer'].includes(cmd.type)){assert(room.host===id,'Only the host may change lobby settings.',403);assert(!inGame,'The director manages the game after Start.',403)}
    if(['night','undo','reveal','dawnReady','dayReady','vote','lockVote','claim'].includes(cmd.type)){assert(body.round===room.round,'A new round has begun. Refresh your view.',409);assert(g?.order.includes(id)&&!player.spectator,'You are watching this round.',403)}
    switch(cmd.type){
+    case 'spectate':assert(['lobby','result'].includes(room.phase),'Change seats between rounds.');if(!cmd.value)assert(room.players.filter(p=>!p.left&&!p.spectator).length<10||!player.spectator,'Ten seats are already taken.');player.spectator=cmd.value;player.waiting=false;player.ready=false;break;
     case 'expression':assert(!['night','dealing','dawn','vote'].includes(room.phase),'Stay quiet during this phase.');assert(!player.lastExpression||now-player.lastExpression>1200,'Wait a moment.');player.expression=cmd.value;player.lastExpression=now;break;
     case 'start':startSessionRound(room,now,randomInt(0x7fffffff));break;
     case 'lobbyReady':assert(room.phase==='lobby','Wait for the lobby.');player.ready=cmd.value;break;

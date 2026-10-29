@@ -14,7 +14,7 @@ export function useMotion(view: SceneState | null, bus: MotionBus) {
     bus.remote.clear(); bus.focus = null;
     let stopped = false; let timer: ReturnType<typeof setInterval>; let retry: ReturnType<typeof setTimeout>; let dispose = () => {};
     const receive = (payload: unknown) => {
-      if (view.phase === 'day' && validPosition(payload) && payload.round === view.round && payload.player !== view.me && view.players.some(p => p.id === payload.player)) bus.remote.set(payload.player, payload);
+      if (['day','lobby'].includes(view.phase) && validPosition(payload) && payload.round === view.round && payload.player !== view.me && view.players.some(p => p.id === payload.player)) bus.remote.set(payload.player, payload);
     };
     const packet = () => positionPacket(view.me, view.round, bus.local.x, bus.local.z);
     let previous: WirePosition | null = null, lastAt = 0;
@@ -32,9 +32,9 @@ export function useMotion(view: SceneState | null, bus: MotionBus) {
         const channel = client.channel(`clearing:${view.code}`, { config: { broadcast: { self: false } } })
           .on('broadcast', { event: 'position' }, ({ payload }) => { const decoded = unpackPosition(payload); if (decoded) receive(decoded); })
           .subscribe(status => { subscribed = status === 'SUBSCRIBED'; });
-        timer = setInterval(() => { if (subscribed && view.phase === 'day') { const p = next(); if (p) void channel.send({ type: 'broadcast', event: 'position', payload: p }); } }, 100);
+        timer = setInterval(() => { if (subscribed && ['day','lobby'].includes(view.phase)) { const p = next(); if (p) void channel.send({ type: 'broadcast', event: 'position', payload: p }); } }, 100);
         dispose = () => { void client.removeChannel(channel); };
-      } else if (view.phase === 'day') {
+      } else if (['day','lobby'].includes(view.phase)) {
       let pending = false;
       timer = setInterval(async () => {
         if (pending || stopped) return; pending = true;

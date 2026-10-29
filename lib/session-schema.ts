@@ -14,9 +14,10 @@ const simple=z.union([
 export const roleActionSchema=z.union([simple,z.strictObject({role:z.literal('doppel'),target:id,followup:simple.optional(),later:simple.optional()}),z.strictObject({role:z.enum(ROLES),skip:z.literal(true)})]);
 export const roomSettingsSchema=z.strictObject({ruleset:z.enum(['classic','solo']),allowSkip:z.boolean(),doppel:z.boolean(),daySeconds:z.number().int().min(30).max(900),speed:z.number().min(.1).max(2),preset:z.enum(['beginner','classic','chaos']),deck:z.array(z.enum(ROLES)).max(13).nullable(),allowed:z.array(z.enum(ROLES)).max(12),chat:z.enum(['off','day','always']),filter:z.boolean(),discord:z.string().max(250),rotateHost:z.boolean()});
 export const sessionCommand=z.discriminatedUnion('type',[
- z.strictObject({type:z.literal('create'),name:z.string().max(100)}),z.strictObject({type:z.literal('join'),name:z.string().max(100),spectator:z.boolean().optional()}),
+ z.strictObject({type:z.literal('create'),name:z.string().max(100),appearance:z.unknown().optional()}),z.strictObject({type:z.literal('join'),name:z.string().max(100),appearance:z.unknown().optional(),spectator:z.boolean().optional()}),
  z.strictObject({type:z.literal('sync')}),z.strictObject({type:z.literal('advance')}),z.strictObject({type:z.literal('start')}),z.strictObject({type:z.literal('reveal')}),
  z.strictObject({type:z.literal('expression'),value:z.enum(['neutral','suspicious','smug','shocked','sad','angry'])}),
+ z.strictObject({type:z.literal('spectate'),value:z.boolean()}),
  z.strictObject({type:z.literal('lobbyReady'),value:z.boolean()}),z.strictObject({type:z.literal('dayReady'),value:z.boolean()}),z.strictObject({type:z.literal('dawnReady')}),
  z.strictObject({type:z.literal('night'),action:roleActionSchema}),z.strictObject({type:z.literal('undo')}),z.strictObject({type:z.literal('vote'),target:id.nullable()}),z.strictObject({type:z.literal('lockVote')}),
  z.strictObject({type:z.literal('settings'),settings:roomSettingsSchema}),z.strictObject({type:z.literal('appearance'),appearance:z.strictObject({cloak:z.number().int().min(0).max(7),hat:z.number().int().min(0).max(5),face:z.number().int().min(0).max(5)})}),
