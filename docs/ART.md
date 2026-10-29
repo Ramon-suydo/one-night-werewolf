@@ -8,6 +8,7 @@ an emblem and a shaped wax seal. The back uses an original spiral path.
 
 | Role | Construction |
 | --- | --- |
+| Doppelgänger | Two mirrored half-masks on a cracked mirror |
 | Werewolf | A crescent bowl between two claw strokes |
 | Minion | A triangular hood with one empty glowing eye |
 | Mason | Two angular overlapping keystones |
@@ -22,11 +23,13 @@ an emblem and a shaped wax seal. The back uses an original spiral path.
 
 The green circle, red jagged seal and purple diamond distinguish village,
 werewolf and Tanner teams by shape as well as color. `lib/rules.ts` contains each
-small source path; `lib/tablet-atlas.ts` rasterizes all 11 fronts plus the back
-into one 288×360 runtime atlas. 3D textures share that atlas; no large bitmap
+small source path; `lib/tablet-atlas.ts` rasterizes all 12 fronts in both rulesets plus the back
+into one 288×840 runtime atlas. 3D textures share that atlas; no large bitmap
 downloads are required. `lib/theme.mjs` defines the base time-of-day palettes;
 `scripts/theme.mjs` generates CSS tokens from them. The card gallery is `/gallery`.
 
 Silkscreen and VT323 remain OFL-licensed fonts; their licenses are in public/fonts.
 The original scene prototypes remain in the repository for provenance, but their
 portrait-style role sprites are no longer used on cards.
+
+Solo Drunk uses an amber hexagon, Troublemaker a teal triangle, Robber an orange keyhole and Doppelgänger a silver split-circle. Classic variants of the first three retain village seals. All variants share one atlas. The reusable 3D tablet has an original arched, chipped ExtrudeGeometry with shallow bevels and shaded edges, drawn through an instanced mesh. Emblems are code paths of a few hundred bytes, not downloaded illustrations.
