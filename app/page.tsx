@@ -12,6 +12,7 @@ import {PREFERENCES,type Preferences} from '@/lib/preferences';
 import {detectGPU} from '@/lib/quality';
 import {mountAudio} from '@/lib/audio';
 import {bannerAt} from '@/lib/result-timeline';
+import {narratorCue} from '@/lib/narrator-cues';
 import {permittedFaces} from '@/lib/card-interaction';
 import type {Role,RoleAction,SimpleAction} from '@/engine';
 import type {DrawerTab} from './session-drawer';
@@ -22,6 +23,7 @@ const Tutorial=dynamic(()=>import('./tutorial'),{ssr:false});
 const Cinematic=dynamic(()=>import('./cinematic'),{ssr:false});
 const PhaseVFX=dynamic(()=>import('./phase-vfx'),{ssr:false});
 const MusicLayers=dynamic(()=>import('./music-layers'),{ssr:false});
+const DirectorNarrator=dynamic(()=>import('./director-narrator'),{ssr:false});
 const NatureSounds=dynamic(()=>import('./nature-sounds').then(m=>m.NatureSounds),{ssr:false});
 export default function Home(){
  const{state,busy,error,setError,connection,now,send}=useSession(),s=state?.public,own=state?.private;
@@ -32,6 +34,7 @@ export default function Home(){
  const[preload,setPreload]=useState({fonts:false,atlas:false,world:false});
  const lastQuality=useRef<Preferences['quality']|null>(null);
  const[keepsake,setKeepsake]=useState('');
+ const duck=useCallback((value:number)=>{audio.current?.duck(value);window.dispatchEvent(new CustomEvent('werewolf-duck',{detail:value}))},[]);
  const worldReady=useCallback(()=>setPreload(p=>({...p,world:true})),[]);
  const audio=useRef<ReturnType<typeof mountAudio>|null>(null);const view=state?worldProjection(state):null;useMotion(view,bus);
  const effectiveRole=own?.role==='doppel'?own.copiedRole:own?.role;
@@ -83,7 +86,7 @@ export default function Home(){
   else if(!s.order.includes(own.id)&&s.phase!=='result')context=<button className="btn alt primary-action" disabled>Watching · next round</button>;
   else if(s.phase==='dealing'&&!own.revealed)context=<HoldButton disabled={busy} label="Reveal my tablet" onComplete={()=>dispatch({type:'reveal'})}>Reveal my tablet</HoldButton>;
   else if(s.phase==='dawn')context=<button className="btn primary-action" disabled={busy} onClick={()=>dispatch({type:'dawnReady'})}>I’m ready</button>;
-  else if(s.phase==='day'){const ready=localStorage.getItem('ready:'+s.code+':'+s.round)==='yes';context=<button className="btn primary-action" disabled={busy} onClick={()=>{localStorage.setItem('ready:'+s.code+':'+s.round,ready?'no':'yes');dispatch({type:'dayReady',value:!ready})}}>{ready?'Keep discussing':'Ready to vote'}</button>}
+  else if(s.phase==='day'){const ready=own.ready;context=<button className="btn primary-action" disabled={busy} onClick={()=>{dispatch({type:'dayReady',value:!ready})}}>{ready?'Keep discussing':'Ready to vote'}</button>}
   else if(s.phase==='vote'&&!own.locked){const pick=selected[0]||(own.voted?(own.vote||'skip'):undefined);context=<HoldButton label="Lock my vote" disabled={busy||!pick} onComplete={async()=>{if(selected[0])await send({type:'vote',target:selected[0]==='skip'?null:selected[0]});await send({type:'lockVote'});setSelected([])}}>{pick==='skip'?'Lock Skip':pick?'Lock accusation':'Choose a suspect'}</HoldButton>}
   else if(s.phase==='night'&&own.undoUntil&&now<own.undoUntil)context=<button className="btn alt primary-action" disabled={busy} onClick={()=>dispatch({type:'undo'})}>Undo · {Math.ceil((own.undoUntil-now)/1000)}s</button>;
   else if(s.phase==='night'&&own.awake&&!own.locked){const action=nightAction();context=<HoldButton label="Lock night action" disabled={busy||!action} onComplete={()=>{if(action)dispatch({type:'night',action})}}>{selected.length?'Use my power':['robber','troublemaker','wolf'].includes(effectiveRole||'')?'Pass this power':'Close my eyes'}</HoldButton>}
@@ -96,7 +99,7 @@ export default function Home(){
   {!intro&&<>{!playing?<><button className="icon-button menu-toggle" aria-label="Open settings" onClick={()=>open('Settings')}>⚙</button><button className="icon-button help-toggle" aria-label="Open help" onClick={()=>open('Help')}>?</button></>:<><button className="role-chip" onClick={()=>{setRoleOpen(v=>!v);setDrawer(null);setEmotes(false)}} aria-expanded={roleOpen}>{own?.role?RULES[own.role].glyph:'◌'} <span>{title}</span></button><button className="icon-button menu-toggle" aria-label="Open menu" onClick={()=>drawer?setDrawer(null):open('Roles & rules')}>☰</button></>}
   {s?<><header className="phase-strip"><span>{s.phase==='vote'?`${s.lockedCount}/${s.connectedCount} stones locked`:s.phase==='day'?`${s.readyCount}/${s.connectedCount} ready`:s.phase.toUpperCase()}</span><p>{instruction(s,own?.awake,own?.role)}</p>{s.nextWakeAt&&<span className="timer-ring" role="timer" aria-label="Time remaining">{Math.floor(clock/60)}:{String(clock%60).padStart(2,'0')}</span>}</header>
   {s.phase==='lobby'&&<section className="lobby-hud"><small>YOUR FIRE</small><h1 className="room-code">{s.code}</h1><p>{s.players.filter(p=>!p.spectator&&!p.left).length}/10 seats · {s.readyCount} ready</p><button className="btn alt" onClick={()=>{void navigator.clipboard.writeText(location.origin+'/?room='+s.code).then(()=>setInviteCopied(true))}}>{inviteCopied?'Link copied':'Copy invite'}</button>{host&&<button className="btn alt" onClick={()=>dispatch({type:'lobbyReady',value:!s.players.find(p=>p.id===own?.id)?.ready})}>{s.players.find(p=>p.id===own?.id)?.ready?'Leave ready ring':'Enter ready ring'}</button>}</section>}
-  {playing&&<><button className="emote-toggle icon-button" aria-label="Open reactions" onClick={()=>{setEmotes(v=>!v);setDrawer(null);setRoleOpen(false)}} disabled={['night','dealing','dawn','vote'].includes(s.phase)}>✦</button><div className="context-action">{context}</div><p className="director-caption" aria-live="polite">{s.caption}</p></>}{!playing&&<div className="context-action">{context}</div>}
+  {playing&&<><button className="emote-toggle icon-button" aria-label="Open reactions" onClick={()=>{setEmotes(v=>!v);setDrawer(null);setRoleOpen(false)}} disabled={['night','dealing','dawn','vote'].includes(s.phase)}>✦</button><div className="context-action">{context}</div><p className="director-caption" aria-live="polite">{narratorCue(s,now).text}</p></>}{!playing&&<div className="context-action">{context}</div>}
   {s.phase==='night'&&!own?.awake&&<div className="eyelids" aria-hidden="true"/>}
   {s.phase==='result'&&s.result&&resultReady&&<section className="result-hud" data-testid="result-banner"><h1>{s.result.banner}</h1><p>{s.result.banished.length?'Banished: '+s.result.banished.map(id=>s.players.find(p=>p.id===id)?.name).join(', '):'Nobody was banished.'}{s.result.hunted.length>0?' The Hunter’s shot took another player down.':''}</p><ol>{s.result.players.map((p,i)=><li key={p.id} style={{animationDelay:prefs.calm?'0s':i*.15+'s'}} className={p.won?'won':'lost'}><b>{s.players.find(x=>x.id===p.id)?.name} · {p.won?'Won':'Lost'}</b><span>dealt {RULES[s.original![i].role].name} · final {RULES[p.role].name} · {s.result!.counts[i]} votes</span><small>{p.reason} {p.goal}</small></li>)}</ol><p>Next deal in {clock}s · wins this session: {s.scores[own!.id]?.wins||0}</p></section>}
   </>:<section className="entry-hud"><small>ONE FIRE. MANY SECRETS.</small><h1>One Night<br/>Werewolf</h1><form onSubmit={e=>{e.preventDefault();localStorage.setItem('werewolf-name',name);void send({type:joining?'join':'create',name,appearance:(()=>{try{return JSON.parse(localStorage.getItem('werewolf-profile')||'{}')}catch{return{}}})()},joining?code:'')}}><label className="sr-only" htmlFor="player-name">Your name</label><input id="player-name" onFocus={()=>{bus.mirror=true}} onBlur={()=>{bus.mirror=false}} aria-label="Your name" maxLength={12} autoComplete="nickname" placeholder="Who are you?" value={name} onChange={e=>setName(e.target.value)}/>{joining&&<div className="rune-input"><div className="rune-stones" aria-hidden="true">{[0,1,2,3].map(i=><span key={i} data-lit={!!code[i]}>{code[i]||'·'}</span>)}</div><label className="sr-only" htmlFor="join-code">Room code</label><input id="join-code" aria-label="Room code" maxLength={4} autoCapitalize="characters" value={code} onChange={e=>setCode(e.target.value.toUpperCase().replace(/[^A-HJ-NP-Z]/g,''))} placeholder="FIRE"/></div>}<button className="btn" type="submit" disabled={busy||!name.trim()}>{joining?'Join this fire':'Create room'}</button><button className="btn alt" type="button" onClick={()=>setJoining(v=>!v)}>{joining?'Create a fire instead':'Join room'}</button></form>{nudge&&<button className="tutorial-nudge" onClick={()=>{setTutorial(true);setNudge(false)}}>New here? Try a 60-second practice.</button>}<p>3–10 friends · Every seat plays</p></section>}
@@ -107,6 +110,6 @@ export default function Home(){
   {connection&&<p className="connection-toast" role="status">{connection}</p>}{error&&<aside className="error-toast" role="alert"><p>{error}</p><button className="btn alt" onClick={()=>setError('')}>Dismiss</button><button className="btn alt" onClick={()=>{void fetch('/api/health').then(r=>r.json()).then(h=>{setError(h.ok?'':h.message)})}}>Retry connection</button></aside>}
   </>}
   {intro&&<Cinematic bus={bus} close={closeIntro}/>}{tutorial&&<Tutorial close={()=>{setTutorial(false);setNudge(false)}}/>}{s&&<PhaseVFX phase={s.phase} round={s.round}/>}
-  {audioReady&&<><MusicLayers phase={s?.phase||'lobby'} enabled={!prefs.muted} volume={prefs.music} remaining={clock} total={s?.settings.daySeconds||300}/><NatureSounds phase={s?.phase||'lobby'} enabled={!prefs.muted&&prefs.ambience>0} volume={prefs.ambience} step={s?.step||0}/></>}
+  {audioReady&&<>{s&&<DirectorNarrator state={s} now={now} prefs={prefs} duck={duck}/>}<MusicLayers phase={s?.phase||'lobby'} enabled={!prefs.muted} volume={prefs.music} remaining={clock} total={s?.settings.daySeconds||300}/><NatureSounds phase={s?.phase||'lobby'} enabled={!prefs.muted&&prefs.ambience>0} volume={prefs.ambience} step={s?.step||0}/></>}
  </main>;
 }
