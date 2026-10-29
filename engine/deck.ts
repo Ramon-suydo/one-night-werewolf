@@ -1,0 +1,13 @@
+import {ROLES,requireRule,type Role,type Round,type Settings} from './types';
+export const MAX_COPIES:Record<Role,number>={doppel:1,wolf:2,minion:1,mason:2,seer:1,robber:1,troublemaker:1,drunk:1,insomniac:1,hunter:1,tanner:1,villager:3};
+export function seeded(seed:number){return()=>{seed|=0;seed=seed+0x6d2b79f5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+export function shuffle<T>(items:readonly T[],random:()=>number){const out=[...items];for(let i=out.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[out[i],out[j]]=[out[j],out[i]]}return out}
+export function validateDeck(roles:Role[],players:number){requireRule(Number.isInteger(players)&&players>=3&&players<=10,'Choose 3 to 10 players.');requireRule(roles.length===players+3,`Choose ${players+3} tablets.`);for(const role of roles)requireRule(ROLES.includes(role),'Unknown role.');for(const role of ROLES){const n=roles.filter(r=>r===role).length;requireRule(n<=MAX_COPIES[role],`Too many ${role} tablets.`);if(role==='mason')requireRule(n===0||n===2,'Masons travel as a pair.')}}
+export function buildDeck(players:number,random:()=>number=seeded(1),options:{doppel?:boolean;preset?:'beginner'|'classic'|'chaos';allowed?:Role[]}={}):Role[]{
+ requireRule(players>=3&&players<=10,'Choose 3 to 10 players.');if(options.preset==='beginner')requireRule(players<=9,'Beginner supports up to 9 players. Choose Classic for 10.');
+ const deck:Role[]=['wolf','wolf','seer','robber','troublemaker'];let groups:Role[][]=[['mason','mason'],['minion'],['drunk'],['insomniac'],['hunter'],['tanner'],['villager'],['villager'],['villager']];
+ if(options.doppel)groups.push(['doppel']);if(options.preset==='beginner')groups=groups.filter(g=>!['doppel','minion','mason'].includes(g[0]));if(options.allowed)groups=groups.filter(g=>g.every(r=>options.allowed!.includes(r)));
+ groups=shuffle(groups,random);for(const group of groups)if(deck.length+group.length<=players+3)deck.push(...group);validateDeck(deck,players);return deck;
+}
+export const DEFAULT_SETTINGS:Settings={ruleset:'solo',allowSkip:true,doppel:false,daySeconds:300,speed:1};
+export function deal(order:string[],roles:Role[],random:()=>number,settings:Settings={...DEFAULT_SETTINGS}):Round{validateDeck(roles,order.length);requireRule(new Set(order).size===order.length,'Seats must be unique.');const original=shuffle(roles,random).map(role=>({role}));return{order:[...order],original,cards:structuredClone(original),actions:{},actionAt:{},votes:{},reports:{},events:[{kind:'deal',step:-1,at:0,after:structuredClone(original)}],settings:{...settings}}}
