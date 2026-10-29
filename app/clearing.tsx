@@ -138,6 +138,7 @@ function Landmarks({ day, reduced }: { day: React.RefObject<number>; reduced: bo
 }
 function Character({ player, index, count, view, bus, reduced, elapsed }: { player: NonNullable<SceneState>['players'][number]; index: number; count: number; view: SceneState; bus: MotionBus; reduced: boolean; elapsed: React.RefObject<number> }) {
   const root = useRef<T.Group>(null); const body = useRef<T.Mesh>(null); const head = useRef<T.Group>(null); const left = useRef<T.Group>(null); const right = useRef<T.Group>(null); const arms = useRef<T.Group>(null); const cape = useRef<T.Mesh>(null); const dust = useRef<T.Mesh>(null);
+  const lastStepSound=useRef(0);
   const arrived=useRef(performance.now());
   const home = useMemo(() => seat(index, count), [index, count]); const color=player.connected?CLOAKS[player.appearance.cloak]:'#252739';
   useEffect(() => { if (root.current) root.current.position.set(...home); if (player.id === view.me) { bus.local.x = home[0]; bus.local.z = home[2]; } }, [view.phase, view.round, home, player.id, view.me, bus]);
@@ -148,7 +149,7 @@ function Character({ player, index, count, view, bus, reduced, elapsed }: { play
       else { const pos = bus.remote.get(player.id); if (pos) g.position.lerp(new T.Vector3(pos.x, 0, pos.z), 1 - Math.exp(-dt * 12)); }
     } else g.position.lerp(new T.Vector3(...home), 1 - Math.exp(-dt * 10));
     if(view.phase==='lobby'&&!reduced&&performance.now()-arrived.current<1400){const p=Math.min(1,(performance.now()-arrived.current)/1400),distance=1+2*(1-p)*(1-p);g.position.set(home[0]*distance,0,home[2]*distance)}
-    const dx = g.position.x - previous.x, dz = g.position.z - previous.z; const moving = Math.hypot(dx, dz) > .001;
+    const dx = g.position.x - previous.x, dz = g.position.z - previous.z; const moving = Math.hypot(dx, dz) > .001;if(moving&&player.id===view.me&&Date.now()-lastStepSound.current>350){lastStepSound.current=Date.now();window.dispatchEvent(new CustomEvent('werewolf-sfx',{detail:{name:'step',pan:Math.max(-1,Math.min(1,g.position.x/13))}}))}
     const sleep=view.phase==='night'||!player.connected;const stance=sleep?.72:view.phase==='lobby'&&!player.ready?.78:1;
     if (moving) g.rotation.y = Math.atan2(dx, dz); else if (view.phase !== 'day') g.rotation.y = Math.atan2(-g.position.x, -g.position.z);
     if (body.current) body.current.position.y = stance + Math.sin(t * (moving ? 12 : 2) + index) * .025;
@@ -186,7 +187,7 @@ function PondPreview({reduced}:{reduced:boolean}){
 }
 function SceneCard({index,view,dealElapsed,reduced,bus,faces}:{index:number;view:SceneState;elapsed:React.RefObject<number>;dealElapsed:React.RefObject<number>;reduced:boolean;bus:MotionBus;faces:Record<string,Card>}){
  const group=useRef<T.Group>(null),[up,setUp]=useState(false),target=useMemo(()=>new T.Vector3(),[]);const count=view.order.length,id=index<count?view.order[index]:'center-'+(index-count),face=faces[id];
- useEffect(()=>{setUp(false);if(view.phase!=='result')return;const timer=setTimeout(()=>setUp(true),reduced?0:(.7+index*.45)*1000);return()=>clearTimeout(timer)},[view.phase,view.round,index,reduced]);
+ useEffect(()=>{setUp(false);if(view.phase!=='result')return;const timer=setTimeout(()=>{setUp(true);window.dispatchEvent(new CustomEvent('werewolf-sfx',{detail:{name:'flip',pitch:1+index*.06}}))},reduced?0:(.7+index*.45)*1000);return()=>clearTimeout(timer)},[view.phase,view.round,index,reduced]);
  useFrame(({camera,clock})=>{if(!group.current)return;if(index<count){const at=seat(index,count),radius=view.phase==='result'?1:.6;target.set(at[0]*radius,view.phase==='result'?3.6:1.4,at[2]*radius)}else target.set((index-count-1)*1.2,2.4,-1.3);
  const dealt=reduced?1:T.MathUtils.clamp((dealElapsed.current-index*.08)/.8,0,1);group.current.position.copy(target).multiplyScalar(dealt);group.current.position.y+=Math.sin(Math.PI*dealt)*3+(reduced?0:Math.sin(clock.elapsedTime*2+index)*.06);group.current.lookAt(camera.position);const slam=view.emotes.find(e=>e.kind==='slam'&&Date.now()-e.at<600);if(slam&&!reduced)group.current.position.y+=Math.sin((Date.now()-slam.at)/600*Math.PI)*.35;});
  const state=up||view.phase==='dealing'&&!!face?'up':view.phase==='night'&&!!face?'peeked':'down';

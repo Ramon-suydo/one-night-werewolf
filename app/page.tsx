@@ -8,7 +8,7 @@ import {worldProjection,instruction} from '@/lib/scene';
 import {useMotion} from './use-motion';
 import {RULES} from '@/lib/rules';
 import {SOLO_OBJECTIVES} from '@/rules/soloObjectives';
-import {PREFERENCES,type Preferences} from '@/lib/preferences';
+import {PREFERENCES,sanitizePreferences,type Preferences} from '@/lib/preferences';
 import {detectGPU} from '@/lib/quality';
 import {mountAudio} from '@/lib/audio';
 import {bannerAt} from '@/lib/result-timeline';
@@ -22,9 +22,7 @@ const Drawer=dynamic(()=>import('./session-drawer').then(m=>m.SessionDrawer),{ss
 const Tutorial=dynamic(()=>import('./tutorial'),{ssr:false});
 const Cinematic=dynamic(()=>import('./cinematic'),{ssr:false});
 const PhaseVFX=dynamic(()=>import('./phase-vfx'),{ssr:false});
-const MusicLayers=dynamic(()=>import('./music-layers'),{ssr:false});
 const DirectorNarrator=dynamic(()=>import('./director-narrator'),{ssr:false});
-const NatureSounds=dynamic(()=>import('./nature-sounds').then(m=>m.NatureSounds),{ssr:false});
 export default function Home(){
  const{state,busy,error,setError,connection,now,send}=useSession(),s=state?.public,own=state?.private;
  const [bus]=useState(makeMotion),[prefs,setPrefs]=useState<Preferences>(PREFERENCES),[loaded,setLoaded]=useState(false),[audioReady,setAudioReady]=useState(false),[gpuFailed,setGpuFailed]=useState(false);
@@ -34,6 +32,7 @@ export default function Home(){
  const[preload,setPreload]=useState({fonts:false,atlas:false,world:false});
  const lastQuality=useRef<Preferences['quality']|null>(null);
  const[keepsake,setKeepsake]=useState('');
+ const routeNarrator=useCallback((element:HTMLAudioElement)=>audio.current?.connectNarrator(element),[]);
  const duck=useCallback((value:number)=>{audio.current?.duck(value);window.dispatchEvent(new CustomEvent('werewolf-duck',{detail:value}))},[]);
  const worldReady=useCallback(()=>setPreload(p=>({...p,world:true})),[]);
  const audio=useRef<ReturnType<typeof mountAudio>|null>(null);const view=state?worldProjection(state):null;useMotion(view,bus);
@@ -42,10 +41,10 @@ export default function Home(){
  useEffect(()=>{let stopped=false;void Promise.all([document.fonts.load('7px Silkscreen'),document.fonts.ready]).then(async()=>{if(stopped)return;setPreload(p=>({...p,fonts:true}));const art=await import('@/lib/tablet-atlas');art.getTabletAtlas();if(!stopped)setPreload(p=>({...p,atlas:true}))});return()=>{stopped=true}},[]);
  const fallback=useCallback(()=>{setGpuFailed(true);setIntro(false)},[]);
  const open=useCallback((tab:DrawerTab)=>{setDrawer(tab);setRoleOpen(false);setEmotes(false)},[]);
- useEffect(()=>{const runtime=mountAudio();audio.current=runtime;try{const saved=JSON.parse(localStorage.getItem('werewolf-preferences')||'{}');setPrefs({...PREFERENCES,...saved,calm:!!saved.calm||matchMedia('(prefers-reduced-motion: reduce)').matches});setMuted(JSON.parse(localStorage.getItem('werewolf-muted')||'[]'))}catch{}setName(localStorage.getItem('werewolf-name')||'');const link=new URLSearchParams(location.search).get('room');if(link){setCode(link.toUpperCase());setJoining(true)}setNudge(!localStorage.getItem('werewolf-tutorial'));if(!localStorage.getItem('werewolf-intro'))setIntro(true);setLoaded(true);const start=()=>{setAudioReady(true);runtime.setMusic(true)};window.addEventListener('pointerdown',start,{once:true});return()=>{runtime.dispose();window.removeEventListener('pointerdown',start)}},[]);
- useEffect(()=>{if(!loaded)return;localStorage.setItem('werewolf-preferences',JSON.stringify(prefs));document.documentElement.dataset.calm=String(prefs.calm);document.documentElement.dataset.large=String(prefs.large);document.documentElement.dataset.contrast=String(prefs.contrast);bus.calm=prefs.calm;bus.batterySaver=prefs.battery;audio.current?.setVolume(prefs.music);audio.current?.setEffects(prefs.effects);audio.current?.setMusic(!prefs.muted);if(lastQuality.current!==prefs.quality){lastQuality.current=prefs.quality;if(prefs.quality==='Automatic'){localStorage.removeItem('werewolf-quality');window.dispatchEvent(new CustomEvent('werewolf-quality',{detail:detectGPU().tier}))}else{localStorage.setItem('werewolf-quality',prefs.quality);window.dispatchEvent(new CustomEvent('werewolf-quality',{detail:prefs.quality}))}}},[prefs,loaded,bus]);
+ useEffect(()=>{const runtime=mountAudio();audio.current=runtime;try{const saved=sanitizePreferences(JSON.parse(localStorage.getItem('werewolf-preferences')||'{}'));setPrefs({...saved,calm:!!saved.calm||matchMedia('(prefers-reduced-motion: reduce)').matches});setMuted(JSON.parse(localStorage.getItem('werewolf-muted')||'[]'))}catch{}setName(localStorage.getItem('werewolf-name')||'');const link=new URLSearchParams(location.search).get('room');if(link){setCode(link.toUpperCase());setJoining(true)}setNudge(!localStorage.getItem('werewolf-tutorial'));if(!localStorage.getItem('werewolf-intro'))setIntro(true);setLoaded(true);const start=()=>{setAudioReady(true)};window.addEventListener('pointerdown',start,{once:true});return()=>{runtime.dispose();window.removeEventListener('pointerdown',start)}},[]);
+ useEffect(()=>{if(!loaded)return;localStorage.setItem('werewolf-preferences',JSON.stringify(prefs));document.documentElement.dataset.calm=String(prefs.calm);document.documentElement.dataset.large=String(prefs.large);document.documentElement.dataset.contrast=String(prefs.contrast);bus.calm=prefs.calm;bus.batterySaver=prefs.battery;audio.current?.configure({music:prefs.music,narrator:prefs.narrator,effects:prefs.effects,ambience:prefs.ambience,master:prefs.master,muted:prefs.muted,calm:prefs.calmSounds||prefs.calm});if(lastQuality.current!==prefs.quality){lastQuality.current=prefs.quality;if(prefs.quality==='Automatic'){localStorage.removeItem('werewolf-quality');window.dispatchEvent(new CustomEvent('werewolf-quality',{detail:detectGPU().tier}))}else{localStorage.setItem('werewolf-quality',prefs.quality);window.dispatchEvent(new CustomEvent('werewolf-quality',{detail:prefs.quality}))}}},[prefs,loaded,bus]);
  useEffect(()=>{localStorage.setItem('werewolf-muted',JSON.stringify(muted))},[muted]);
- useEffect(()=>{setSelected([]);setRoleOpen(false);setEmotes(false);audio.current?.setSky(['day','vote','result'].includes(s?.phase||'')?1:0);if(s?.phase==='dawn')audio.current?.beep(660,.3)},[s?.phase,s?.round,s?.step]);
+ useEffect(()=>{setSelected([]);setRoleOpen(false);setEmotes(false);},[s?.phase,s?.round,s?.step]);
  useEffect(()=>{bus.exploring=!drawer&&!intro;bus.mirror=!s&&(drawer==="Players"||document.activeElement?.id==="player-name");bus.awake=!!own?.awake;bus.selected=selected.length?selected:s?.phase==='vote'&&own?.voted?[own.vote||'skip']:[];const choose=(target:string)=>{
   if(s?.phase==='lobby'&&target==='ready'){void send({type:'lobbyReady',value:!s.players.find(p=>p.id===own?.id)?.ready});return}
   if(!s||!own||target===own.id)return;
@@ -67,7 +66,7 @@ export default function Home(){
  return()=>{bus.onSelect=undefined;bus.onMenu=undefined;bus.onReact=undefined;bus.onReactions=undefined;bus.onPeek=undefined;bus.onSwap=undefined;bus.onLandmark=undefined;bus.onReady=undefined}},[s,own,bus,drawer,intro,selected,send,open]);
  useEffect(()=>{if(!keepsake)return;const timer=setTimeout(()=>setKeepsake(''),3500);return()=>clearTimeout(timer)},[keepsake]);
  useEffect(()=>{if(s?.phase!=='result'||!s.result||!own)return;const key=`werewolf-achieved:${s.code}:${s.round}:${own.id}`;if(localStorage.getItem(key))return;try{const data=JSON.parse(localStorage.getItem('werewolf-keepsakes')||'{"rounds":0,"wins":0}');data.rounds++;data.wins+=Number(s.result.players.find(p=>p.id===own.id)?.won);localStorage.setItem('werewolf-keepsakes',JSON.stringify(data));localStorage.setItem(key,'true')}catch{}},[s?.phase,s?.code,s?.round,s?.result,own]);
- const dispatch=(c:Command)=>{audio.current?.beep(420,.06);void send(c);if(['night','vote'].includes(c.type))setSelected([])};
+ const dispatch=(c:Command)=>{audio.current?.cue(c.type==='start'?'shuffle':c.type==='night'?'lock':c.type==='reveal'?'flip':c.type==='vote'?'vote':'ui');void send(c);if(['night','vote'].includes(c.type))setSelected([])};
  useEffect(()=>{setResultReady(false);if(s?.phase!=='result')return;const timer=setTimeout(()=>{setResultReady(true);audio.current?.beep(s.result?.players.find(p=>p.id===own?.id)?.won?880:110,.4)},prefs.calm?0:bannerAt(s.order.length)*1000);return()=>clearTimeout(timer)},[s?.phase,s?.round,s?.order.length,prefs.calm,own?.id,s?.result]);
  function nightAction():RoleAction|undefined{
   if(!own?.role)return;const role:Role=own.role==='doppel'&&own.copiedRole?own.copiedRole:own.role,centers=selected.filter(t=>t.startsWith('center-')).map(t=>Number(t.slice(7)) as 0|1|2),people=selected.filter(t=>!t.startsWith('center-'));
@@ -80,6 +79,9 @@ export default function Home(){
   if(own.role==='doppel'&&own.action?.role==='doppel'&&!('skip'in own.action)&&own.step===0)return{...own.action,followup:action as SimpleAction};return action;
  }
  const clock=s?.nextWakeAt?Math.max(0,Math.ceil((s.nextWakeAt-now)/1000)):0,host=s?.host===own?.id,playing=!!s&&s.phase!=='lobby',title=own?.role?RULES[own.role].name:'Your seat';
+ useEffect(()=>{audio.current?.scene(s?.phase||'lobby',clock,s?.settings.daySeconds||300)},[s?.phase,s?.settings.daySeconds,clock]);
+ useEffect(()=>{if(s?.phase==='vote'&&clock>0&&clock<=10&&!prefs.calmSounds){audio.current?.cue('chisel',0,1+(10-clock)*.025);if(!prefs.calm&&navigator.vibrate)navigator.vibrate(8)}if(s?.phase==='day'&&clock===60&&s.settings.daySeconds>=60)audio.current?.cue('bell')},[s?.phase,s?.settings.daySeconds,clock,prefs.calm,prefs.calmSounds]);
+ const lastEmote=useRef('');useEffect(()=>{const e=s?.emotes.at(-1);if(e&&e.id!==lastEmote.current){lastEmote.current=e.id;audio.current?.cue(e.kind==='slam'?'slam':'emote')}},[s?.emotes]);
  let context:React.ReactNode=null;
  if(s&&own){
   if(s.phase==='lobby')context=host?<button className="btn primary-action" disabled={busy||s.players.filter(p=>!p.spectator&&!p.left).length<3} onClick={()=>dispatch({type:'start'})}>Start the night</button>:<button className="btn primary-action" disabled={busy} onClick={()=>dispatch({type:'lobbyReady',value:!s.players.find(p=>p.id===own.id)?.ready})}>{s.players.find(p=>p.id===own.id)?.ready?'Leave ready ring':'Ready at the fire'}</button>;
@@ -110,6 +112,6 @@ export default function Home(){
   {connection&&<p className="connection-toast" role="status">{connection}</p>}{error&&<aside className="error-toast" role="alert"><p>{error}</p><button className="btn alt" onClick={()=>setError('')}>Dismiss</button><button className="btn alt" onClick={()=>{void fetch('/api/health').then(r=>r.json()).then(h=>{setError(h.ok?'':h.message)})}}>Retry connection</button></aside>}
   </>}
   {intro&&<Cinematic bus={bus} close={closeIntro}/>}{tutorial&&<Tutorial close={()=>{setTutorial(false);setNudge(false)}}/>}{s&&<PhaseVFX phase={s.phase} round={s.round}/>}
-  {audioReady&&<>{s&&<DirectorNarrator state={s} now={now} prefs={prefs} duck={duck}/>}<MusicLayers phase={s?.phase||'lobby'} enabled={!prefs.muted} volume={prefs.music} remaining={clock} total={s?.settings.daySeconds||300}/><NatureSounds phase={s?.phase||'lobby'} enabled={!prefs.muted&&prefs.ambience>0} volume={prefs.ambience} step={s?.step||0}/></>}
+  {audioReady&&<>{s&&<DirectorNarrator state={s} now={now} prefs={prefs} duck={duck} route={routeNarrator}/>}</>}
  </main>;
 }
