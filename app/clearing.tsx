@@ -1,0 +1,279 @@
+'use client';
+
+import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import * as T from 'three';
+import { CLOAKS, type SceneState } from '@/lib/social';
+import { seat, type MotionBus } from '@/lib/motion';
+import type { Role } from '@/lib/engine';
+import { getTabletAtlas,tabletIndex } from '@/lib/tablet-atlas';
+import { NIGHT,MOODS } from '@/lib/theme.mjs';
+import { RULES } from '@/lib/rules';
+import { introCamera } from '@/lib/vfx';
+import { WorldVFX } from './world-vfx';
+import {detectGPU,QUALITY,TIERS,type QualityTier} from '@/lib/quality';
+
+// Port of One Night Werewolf 3D.html: same primitive proportions, palette,
+// altar, 5-sided faceted mountains/pines, 50-degree camera and low-res renderer.
+const COLORS = { night: NIGHT.ink, dawn: '#e8a07a', ground: '#1f2a2e', clearing: '#3a2a22', snow: NIGHT.ice, pine: '#0e3a34', fire: NIGHT.fire, gold: NIGHT.gold };
+
+type Props = { view: SceneState | null; bus: MotionBus; onFallback: () => void; muted: string[] };
+const random = (i: number) => { const n = Math.sin(i * 127.1 + 311.7) * 43758.5453; return n - Math.floor(n); };
+function Material({ color, glow = false }: { color: string; glow?: boolean }) {
+  return glow ? <meshBasicMaterial color={color} /> : <meshLambertMaterial color={color} flatShading />;
+}
+function Box({ p, size, color, glow = false, rotation }: { p: [number, number, number]; size: [number, number, number]; color: string; glow?: boolean; rotation?: [number, number, number] }) {
+  return <mesh position={p} rotation={rotation} castShadow={!glow} receiveShadow><boxGeometry args={size} /><Material color={color} glow={glow} /></mesh>;
+}
+class Boundary extends Component<{ children: ReactNode; fallback: () => void }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch() { this.props.fallback(); }
+  render() { return this.state.failed ? null : this.props.children; }
+}
+function Vegetation({ low, reduced }: { low: boolean; reduced: boolean }) {
+  const trees = useRef<T.InstancedMesh>(null); const trunks = useRef<T.InstancedMesh>(null); const grass = useRef<T.InstancedMesh>(null);
+  const dummy = useMemo(() => new T.Object3D(), []);
+  const count = low ? 100 : 280;
+  useEffect(() => {
+    for (let i = 0; i < 46; i++) {
+      const a = random(i) * Math.PI * 2, d = 16 + random(i + 90) * 22, s = .8 + random(i + 200) * .8;
+      dummy.position.set(Math.sin(a) * d, .6, Math.cos(a) * d); dummy.scale.set(s, 1, s); dummy.rotation.set(0, 0, 0); dummy.updateMatrix(); trunks.current?.setMatrixAt(i, dummy.matrix);
+    }
+    if (trunks.current) trunks.current.instanceMatrix.needsUpdate = true;
+  }, [dummy]);
+  useFrame(({ clock }) => {
+    const time = reduced ? 0 : clock.elapsedTime;
+    for (let i = 0; i < 46; i++) {
+      const a = random(i) * Math.PI * 2, d = 16 + random(i + 90) * 22, s = .8 + random(i + 200) * .8;
+      for (let k = 0; k < 3; k++) {
+        dummy.position.set(Math.sin(a) * d, (2 + k * 1.3) * s, Math.cos(a) * d);
+        dummy.scale.set((2.2 - k * .55) * s, 2.4 * s, (2.2 - k * .55) * s);
+        dummy.rotation.set(Math.sin(time * .7 + i) * .018, i, Math.cos(time * .5 + i) * .015); dummy.updateMatrix(); trees.current?.setMatrixAt(i * 3 + k, dummy.matrix);
+      }
+    }
+    for (let i = 0; i < count; i++) {
+      const a = random(i + 600) * Math.PI * 2, d = 7.5 + random(i + 800) * 26;
+      dummy.position.set(Math.sin(a) * d, .15, Math.cos(a) * d); dummy.scale.set(.12, .4 + random(i) * .4, .12);
+      dummy.rotation.set(0, a, Math.sin(time * 1.8 + i) * .12); dummy.updateMatrix(); grass.current?.setMatrixAt(i, dummy.matrix);
+    }
+    for (const mesh of [trees.current, grass.current]) if (mesh) mesh.instanceMatrix.needsUpdate = true;
+  });
+  return <><instancedMesh ref={trees} args={[undefined, undefined, 138]}><coneGeometry args={[1, 1, 5]} /><meshLambertMaterial color="#0e3a34" flatShading /></instancedMesh><instancedMesh ref={trunks} args={[undefined, undefined, 46]}><cylinderGeometry args={[.25, .3, 1.2, 5]} /><meshLambertMaterial color="#3a2418" flatShading /></instancedMesh><instancedMesh ref={grass} args={[undefined, undefined, count]}><coneGeometry args={[1, 1, 3]} /><meshLambertMaterial color="#4f7953" flatShading side={T.DoubleSide} /></instancedMesh></>;
+}
+function Mountains() {
+  const bases = useRef<T.InstancedMesh>(null), caps = useRef<T.InstancedMesh>(null);
+  useEffect(() => {
+    const dummy = new T.Object3D();
+    for (let i = 0; i < 16; i++) {
+      const a = i / 16 * 6.283 + random(i) * .3, d = 44 + random(i + 20) * 10, h = 14 + random(i + 40) * 16, r = 7 + random(i + 60) * 5;
+      dummy.position.set(Math.sin(a) * d, h / 2, Math.cos(a) * d); dummy.rotation.set(0, random(i) * 3, 0); dummy.scale.set(r, h, r); dummy.updateMatrix(); bases.current?.setMatrixAt(i, dummy.matrix); bases.current?.setColorAt(i, new T.Color(i % 2 ? '#33286a' : '#2c2058'));
+      dummy.position.y = h * .88; dummy.scale.set(r * .32, h * .3, r * .32); dummy.updateMatrix(); caps.current?.setMatrixAt(i, dummy.matrix);
+    }
+    for (const m of [bases.current, caps.current]) if (m) m.instanceMatrix.needsUpdate = true;
+    if (bases.current?.instanceColor) bases.current.instanceColor.needsUpdate = true;
+  }, []);
+  return <><instancedMesh ref={bases} args={[undefined, undefined, 16]}><coneGeometry args={[1, 1, 5]} /><meshLambertMaterial flatShading /></instancedMesh><instancedMesh ref={caps} args={[undefined, undefined, 16]}><coneGeometry args={[1, 1, 5]} /><Material color={COLORS.snow} /></instancedMesh></>;
+}
+function Particles({ low, reduced, day, winning }: { low: boolean; reduced: boolean; day: React.RefObject<number>; winning: boolean }) {
+  const mesh = useRef<T.Points>(null); const smoke = useRef<T.Points>(null); const fireflies = useRef<T.Points>(null);
+  const count = low ? 18 : 60;
+  const embers = useMemo(() => new Float32Array(count * 3), [count]);
+  const mist = useMemo(() => new Float32Array(36 * 3), []); const insects = useMemo(() => new Float32Array(30 * 3), []);
+  useFrame(({ clock }) => {
+    if (reduced) return; const t = clock.elapsedTime;
+    for (let i = 0; i < count; i++) {
+      const h = (t * (winning ? 1.3 : .7) + random(i) * 5) % 5;
+      embers[i * 3] = Math.sin(t + i * 2) * (winning ? 7 : .5 + h * .2); embers[i * 3 + 1] = h + .6; embers[i * 3 + 2] = Math.cos(t * .6 + i) * (winning ? 7 : .5);
+    }
+    for (let i = 0; i < 36; i++) { mist[i * 3] = Math.sin(t * .05 + i) * 19; mist[i * 3 + 1] = .3 + random(i) * .5; mist[i * 3 + 2] = Math.cos(i * 9 + t * .03) * 19; }
+    for (let i = 0; i < 30; i++) { insects[i * 3] = Math.sin(i * 4 + t * .1) * 14; insects[i * 3 + 1] = 1 + Math.sin(t + i) * .4 + random(i) * 2; insects[i * 3 + 2] = Math.cos(i * 2 + t * .12) * 14; }
+    for (const m of [mesh.current, smoke.current, fireflies.current]) if (m) m.geometry.attributes.position.needsUpdate = true;
+    if (fireflies.current) (fireflies.current.material as T.PointsMaterial).opacity = 1 - day.current;
+  });
+  if (reduced) return null;
+  return <><points ref={mesh}><bufferGeometry><bufferAttribute attach="attributes-position" args={[embers, 3]} /></bufferGeometry><pointsMaterial color={winning ? '#ffd35a' : '#ff8a3c'} size={.09} sizeAttenuation transparent opacity={.8} /></points><points ref={smoke}><bufferGeometry><bufferAttribute attach="attributes-position" args={[mist, 3]} /></bufferGeometry><pointsMaterial color="#8a8fa8" size={low ? 1 : 2.5} sizeAttenuation transparent opacity={.045} depthWrite={false} /></points><points ref={fireflies}><bufferGeometry><bufferAttribute attach="attributes-position" args={[insects, 3]} /></bufferGeometry><pointsMaterial color="#d9e68a" size={.07} transparent /></points></>;
+}
+function Fire({ low, reduced }: { low: boolean; reduced: boolean }) {
+  const flames = useRef<T.Group>(null); const light = useRef<T.PointLight>(null); const smoke = useRef<T.Mesh>(null);
+  useFrame(({ clock }) => {
+    const t = reduced ? 0 : clock.elapsedTime;
+    // Modern Three uses physically correct point-light units (r128 used legacy units).
+    if (light.current) light.current.intensity = 5.7 + Math.sin(t * 23) * .9;
+    flames.current?.children.forEach((f, i) => { f.scale.set(1 + Math.sin(t * 9 + i) * .12, .85 + (Math.sin(Math.floor(t * 12) * 7 + i) + 1) * .2, 1); f.rotation.y = t * 2; });
+    if (smoke.current) smoke.current.position.y = 3 + t % 3;
+  });
+  return <><pointLight ref={light} position={[0, 1.6, 0]} color="#ff8a3c" intensity={5.7} distance={24} decay={1} castShadow={!low} shadow-mapSize={[512, 512]} shadow-bias={-.005} /><group ref={flames}>{[['#d6455d', .55, 1.8], [COLORS.fire, .4, 1.5], ['#ffd35a', .25, 1.1]].map(([color, radius, height], i) => <mesh key={i} position={[i * .05, Number(height) / 2 + .2, i * .16]}><coneGeometry args={[Number(radius), Number(height), 5]} /><meshBasicMaterial color={String(color)} /></mesh>)}</group>{[0, 1, 2].map(i => <Box key={i} p={[0, .2, 0]} rotation={[0, i * 1.05, 0]} size={[2, .3, .35]} color="#5a3a24" />)}{Array.from({ length: 12 }, (_, i) => <mesh key={i} position={[Math.sin(i / 12 * Math.PI * 2) * 1.2, .12, Math.cos(i / 12 * Math.PI * 2) * 1.2]} rotation={[i, i * 3, 0]}><dodecahedronGeometry args={[.23, 0]} /><Material color="#55506a" /></mesh>)}<mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .04, 0]}><circleGeometry args={[3.8, 16]} /><meshBasicMaterial color="#ff8a3c" transparent opacity={.07} depthWrite={false} /></mesh>{!reduced && !low && <mesh ref={smoke} position={[0, 3, 0]}><icosahedronGeometry args={[.65, 0]} /><meshBasicMaterial color="#8a8fa8" transparent opacity={.07} depthWrite={false} /></mesh>}</>;
+}
+function Landmarks({ day, reduced }: { day: React.RefObject<number>; reduced: boolean }) {
+  const pond = useRef<T.Mesh>(null); const owlEyes = useRef<T.Group>(null); const bat = useRef<T.Group>(null); const flowers = useRef<T.Group>(null);
+  useFrame(({ clock }) => {
+    const t = reduced ? 0 : clock.elapsedTime;
+    if (pond.current) { pond.current.scale.setScalar(1 + Math.sin(t * 1.5) * .025); (pond.current.material as T.MeshBasicMaterial).opacity = .15 + .08 * Math.sin(t); }
+    if (owlEyes.current) owlEyes.current.scale.y = t % 5 > 4.8 ? .1 : 1;
+    if (bat.current) { bat.current.position.set(Math.sin(t * .15) * 28, 17 + Math.sin(t) * .6, -24); bat.current.visible = t % 30 < 6 && day.current < .5 && !reduced; bat.current.rotation.z = Math.sin(t * 10) * .2; }
+    if (flowers.current) flowers.current.scale.setScalar(.3 + .7 * day.current);
+  });
+  return <>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[11, .04, -8]}><circleGeometry args={[3.8, 12]} /><meshLambertMaterial color="#2f4a7a" flatShading /></mesh><mesh ref={pond} rotation={[-Math.PI / 2, 0, 0]} position={[11, .06, -8]}><ringGeometry args={[1.3, 1.4, 16]} /><meshBasicMaterial color="#e8e4ff" transparent opacity={.25} /></mesh><mesh rotation={[-Math.PI / 2, 0, 0]} position={[11, .07, -8]}><circleGeometry args={[.6, 8]} /><meshBasicMaterial color="#e8e4ff" transparent opacity={.5} /></mesh>
+    <group position={[-12, 0, -13]}><Box p={[0, 1.5, 0]} size={[4, 3, 3]} color="#5a3a24" /><mesh position={[0, 3.6, 0]} rotation={[0, Math.PI / 4, 0]}><coneGeometry args={[3.2, 2, 4]} /><Material color="#7a2f3f" /></mesh><Box p={[.7, 1.7, 1.52]} size={[1, .9, .05]} color="#ffd35a" glow /><Box p={[-.9, 1, 1.52]} size={[.8, 2, .08]} color="#3a2418" /><pointLight position={[.7, 1.7, 2]} color="#ffd35a" intensity={.5} distance={6} /></group>
+    {[-1, 1].map(i => <group key={i} position={[i * 8, 0, 2]}><Box p={[0, 1.6, 0]} size={[.15, 3.2, .15]} color="#5a3a24" /><Box p={[0, 3, 0]} size={[.45, .6, .45]} color="#ffd35a" glow /><pointLight color="#ffb96a" position={[0, 3, 0]} intensity={.35} distance={7} /><mesh position={[0, 3, 0]}><sphereGeometry args={[.65, 6, 4]} /><meshBasicMaterial color="#ffd35a" transparent opacity={.05} /></mesh></group>)}
+    {[-1, 0, 1].map((i, j) => <group key={i} position={[i * 3, 0, -10 - j % 2]}><mesh position={[0, 1, 0]} scale={[.8, 1.7, .5]} rotation={[0, j, .1]}><dodecahedronGeometry args={[.7, 0]} /><Material color="#55506a" /></mesh><Box p={[0, 1, .4]} size={[.08, .5, .04]} color="#7b4fbf" glow /><Box p={[0, 1.1, .4]} rotation={[0, 0, .6]} size={[.4, .06, .04]} color="#7b4fbf" glow /></group>)}
+    <group position={[8, 0, 9]} rotation={[0, .5, .15]}><Box p={[0, .3, 0]} size={[4, .6, .65]} color="#5a3a24" /></group>
+    {[0, 1, 2, 3].map(i => <group key={i} position={[-8 + i * .4, 0, 7 + i % 2 * .6]}><Box p={[0, .15, 0]} size={[.1, .3, .1]} color="#f0b98d" /><mesh position={[0, .35, 0]}><sphereGeometry args={[.25, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshBasicMaterial color={i % 2 ? '#7b4fbf' : '#d6455d'} /></mesh></group>)}
+    <group ref={flowers} position={[7, .05, -2]}>{[0, 1, 2, 3, 4, 5].map(i => <mesh key={i} position={[i * .4, .3, Math.sin(i)]}><icosahedronGeometry args={[.16, 0]} /><Material color={i % 2 ? '#f4efe0' : '#d6455d'} /></mesh>)}</group>
+    <group position={[-9, 3.8, -7]}><Box p={[0, -.6, 0]} size={[3, .2, .2]} color="#5a3a24" /><mesh><icosahedronGeometry args={[.4, 0]} /><Material color="#8a5a3c" /></mesh><group ref={owlEyes}>{[-.15, .15].map(x => <Box key={x} p={[x, .05, .32]} size={[.12, .13, .06]} color="#ffd35a" glow />)}</group></group>
+    <group ref={bat}><mesh scale={[1, .2, .3]} rotation={[0, 0, .2]}><octahedronGeometry args={[1, 0]} /><Material color="#1a1226" /></mesh></group>
+  </>;
+}
+function Character({ player, index, count, view, bus, reduced, elapsed }: { player: NonNullable<SceneState>['players'][number]; index: number; count: number; view: SceneState; bus: MotionBus; reduced: boolean; elapsed: React.RefObject<number> }) {
+  const root = useRef<T.Group>(null); const body = useRef<T.Mesh>(null); const head = useRef<T.Group>(null); const left = useRef<T.Group>(null); const right = useRef<T.Group>(null); const arms = useRef<T.Group>(null); const cape = useRef<T.Mesh>(null); const dust = useRef<T.Mesh>(null);
+  const home = useMemo(() => seat(index, count), [index, count]); const color = CLOAKS[player.appearance.cloak];
+  useEffect(() => { if (root.current) root.current.position.set(...home); if (player.id === view.me) { bus.local.x = home[0]; bus.local.z = home[2]; } }, [view.phase, view.round, home, player.id, view.me, bus]);
+  useFrame(({ clock, camera }, dt) => {
+    const g = root.current; if (!g) return; const t = reduced ? 0 : clock.elapsedTime; const previous = g.position.clone();
+    if (view.phase === 'day') {
+      if (player.id === view.me) { g.position.x = bus.local.x; g.position.z = bus.local.z; }
+      else { const pos = bus.remote.get(player.id); if (pos) g.position.lerp(new T.Vector3(pos.x, 0, pos.z), 1 - Math.exp(-dt * 12)); }
+    } else g.position.lerp(new T.Vector3(...home), 1 - Math.exp(-dt * 10));
+    const dx = g.position.x - previous.x, dz = g.position.z - previous.z; const moving = Math.hypot(dx, dz) > .001;
+    const sleep = view.phase === 'night'; const stance = sleep ? .72 : 1;
+    if (moving) g.rotation.y = Math.atan2(dx, dz); else if (view.phase !== 'day') g.rotation.y = Math.atan2(-g.position.x, -g.position.z);
+    if (body.current) body.current.position.y = stance + Math.sin(t * (moving ? 12 : 2) + index) * .025;
+    if (head.current) { head.current.position.y = stance + .8; head.current.rotation.x = sleep ? .2 + Math.sin(t + index) * .04 : Math.sin(t * .7 + index) * .04; }
+    if (cape.current) cape.current.rotation.x = moving ? Math.sin(t * 12) * .15 : .04;
+    if (left.current && right.current) { left.current.rotation.x = moving && !reduced ? Math.sin(t * 12) * .7 : sleep ? -1.1 : 0; right.current.rotation.x = -left.current.rotation.x; }
+    const emote = view.emotes.find(e => e.player === player.id);
+    const role = view.reveal?.cards[index]; const victorious = view.reveal?.winningPlayers.includes(player.id);
+    if (arms.current) { arms.current.rotation.z = emote?.kind === 'wave' || victorious ? Math.sin(t * 7) * .5 : 0; arms.current.rotation.x = emote?.kind === 'point' || role === 'hunter' && victorious ? -1.2 : moving ? Math.sin(t * 12) * .4 : 0; arms.current.scale.x = emote?.kind === 'shrug' ? 1.3 : 1; }
+    const dead = view.reveal?.banished.includes(player.id) && (reduced || elapsed.current > .7 + index * .45);
+    g.rotation.z = T.MathUtils.damp(g.rotation.z, dead ? Math.PI / 2 : victorious && role === 'wolf' ? Math.sin(t * 5) * .1 : 0, 7, dt);
+    if (dust.current) { dust.current.visible = moving && !reduced; dust.current.scale.setScalar(.5 + (t * 3) % 1); }
+    const tag = document.getElementById('tag-' + player.id);
+    if (tag) { const pos = new T.Vector3(g.position.x, 3.1, g.position.z).project(camera); tag.style.transform = `translate(-50%,-100%) translate(${(pos.x * .5 + .5) * innerWidth}px,${(-pos.y * .5 + .5) * innerHeight}px)`; tag.style.visibility = pos.z < 1 ? 'visible' : 'hidden'; }
+  });
+  const hat = player.appearance.hat; const face = player.appearance.face; const sleeping = view.phase === 'night';
+  return <group ref={root} position={home}>
+    <mesh ref={body} position={[0, 1, 0]} castShadow><cylinderGeometry args={[.35, .5, 1, 6]} /><Material color={color} /></mesh>
+    <mesh ref={cape} position={[0, 1, -.28]}><coneGeometry args={[.48, 1, 5, 1, true, 0, Math.PI]} /><Material color={color} /></mesh>
+    <group ref={head} position={[0, 1.8, 0]}><mesh castShadow><icosahedronGeometry args={[.38, 0]} /><Material color="#f0b98d" /></mesh>
+      {hat !== 5 && <mesh position={[0, hat === 1 ? .3 : .55, 0]} castShadow>{hat === 1 ? <sphereGeometry args={[.39, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2]} /> : hat === 3 ? <cylinderGeometry args={[.4, .5, .12, 6]} /> : hat === 4 ? <cylinderGeometry args={[.35, .35, .35, 5, 1, true]} /> : <coneGeometry args={[hat === 2 ? .35 : .45, hat === 2 ? .9 : .55, 5]} />}<Material color={hat === 4 ? '#ffd35a' : color} /></mesh>}
+      {[-.14, .14].map(x => <Box key={x} p={[x, .05, .33]} size={[face === 3 ? .15 : .08, sleeping ? .025 : face === 5 ? .04 : .08, .05]} color="#1a1226" />)}
+      {[1, 2, 4].includes(face) && <Box p={[0, -.15, .34]} size={[face === 2 ? .16 : .07, .035, .025]} color={face === 1 ? '#8a5a3c' : '#d6455d'} />}
+    </group>
+    <group ref={left} position={[-.17, .55, 0]}><Box p={[0, -.27, 0]} size={[.2, .55, .2]} color="#1a1226" /></group><group ref={right} position={[.17, .55, 0]}><Box p={[0, -.27, 0]} size={[.2, .55, .2]} color="#1a1226" /></group>
+    <group ref={arms} position={[0, 1.25, 0]}>{[-1, 1].map(x => <Box key={x} p={[x * .42, -.15, 0]} rotation={[0, 0, x * .1]} size={[.16, .6, .18]} color={color} />)}</group>
+    <mesh ref={dust} position={[0, .08, .25]} visible={false}><icosahedronGeometry args={[.35, 0]} /><meshBasicMaterial color="#8a8fa8" transparent opacity={.15} /></mesh>
+  </group>;
+}
+let sharedAtlas:T.CanvasTexture|undefined;
+function cardTexture(role: Role | null) {
+  sharedAtlas ||= new T.CanvasTexture(getTabletAtlas());const texture=sharedAtlas.clone(),index=tabletIndex(role||'back');
+  texture.repeat.set(1/4,1/3);texture.offset.set(index%4/4,1-(Math.floor(index/4)+1)/3);texture.magFilter=T.NearestFilter;texture.minFilter=T.NearestFilter;texture.colorSpace=T.SRGBColorSpace;return texture;
+}
+function SceneCard({ index, view, elapsed, dealElapsed, reduced }: { index: number; view: SceneState; elapsed: React.RefObject<number>; dealElapsed: React.RefObject<number>; reduced: boolean }) {
+  const group = useRef<T.Group>(null); const front = useRef<T.Mesh>(null); const back = useRef<T.Mesh>(null);
+  const role = view.phase === 'result' ? view.reveal?.cards[index] || null : null;
+  const textures = useMemo(() => ({ back: cardTexture(null), front: cardTexture(role) }), [role]);
+  useEffect(() => () => { textures.back.dispose(); textures.front.dispose(); }, [textures]);
+  useFrame(({ clock, camera }) => {
+    if (!group.current) return;
+    const count = view.order.length; const owner = view.players.find(p => p.id === view.order[index]); const tag = owner ? seat(view.order.indexOf(owner.id), count) : [0, 0, 0];
+    const target = index < count ? new T.Vector3(tag[0], 3.6, tag[2]) : new T.Vector3((index - count - 1) * 1.2, 1.2, -3.4);
+    const dealt = reduced ? 1 : T.MathUtils.clamp((dealElapsed.current - index * .08) / .8, 0, 1);
+    group.current.position.copy(target).multiplyScalar(dealt); group.current.position.y += Math.sin(Math.PI * dealt) * 4 + (reduced ? 0 : Math.sin(clock.elapsedTime * 2 + index) * .08);
+    group.current.lookAt(camera.position);
+    const progress = view.phase === 'result' ? reduced ? 1 : T.MathUtils.clamp((elapsed.current - .7 - index * .45) / .5, 0, 1) : 0;
+    const step = Math.floor(progress * 6) / 6;
+    group.current.rotateY(Math.PI * (1 - step));
+    if (front.current) front.current.visible = step >= .5; if (back.current) back.current.visible = step < .5;
+  });
+  return <group ref={group}><mesh ref={front}><planeGeometry args={[.8, 1.333]} /><meshBasicMaterial map={textures.front} alphaTest={.5} side={T.DoubleSide} /></mesh><mesh ref={back}><planeGeometry args={[.8, 1.333]} /><meshBasicMaterial map={textures.back} alphaTest={.5} side={T.DoubleSide} /></mesh></group>;
+}
+function World({ view, bus, low, setLow, reduced }: Props & { low: boolean; setLow: () => void; reduced: boolean }) {
+  const { scene, camera, gl } = useThree(); const day = useRef(0); const ambient = useRef<T.AmbientLight>(null); const moonlight = useRef<T.DirectionalLight>(null); const orb = useRef<T.Mesh>(null); const skyBands = useRef<T.Group>(null);
+  const stars = useRef<T.Points>(null); const ring = useRef<T.Mesh>(null); const trail = useRef<T.Mesh>(null); const projectile = useRef<T.Mesh>(null);
+  const start = useRef(0); const elapsed = useRef(0); const keys = useRef<Record<string, boolean>>({}); const privateTarget = useRef<{ id: string; until: number } | null>(null); const performanceStats = useRef({ frames: 0, time: 0 });
+  const dealStarted = useRef(0); const dealElapsed = useRef(0);
+  const nightColor = useMemo(() => new T.Color(COLORS.night), []); const dawnColor = useMemo(() => new T.Color(COLORS.dawn), []);
+  const starPositions = useMemo(() => new Float32Array(Array.from({ length: 260 }, (_, i) => { const a = random(i) * 6.28, e = random(i + 500) * 1.2 + .15; return [Math.cos(a) * Math.cos(e) * 120, Math.sin(e) * 120, Math.sin(a) * Math.cos(e) * 120]; }).flat()), []);
+  useEffect(() => { scene.fog = new T.Fog(COLORS.night, 28, 80); gl.shadowMap.type = T.BasicShadowMap; return () => { scene.fog = null; }; }, [scene, gl]);
+  useEffect(() => { start.current = performance.now() / 1000; }, [view?.phase, view?.round]);
+  useEffect(() => { dealStarted.current = performance.now() / 1000; }, [view?.round]);
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => { if ((e.target as HTMLElement).closest('input,textarea,select,[contenteditable]')) return; const key = e.key.toLowerCase(); if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) e.preventDefault(); keys.current[key] = true; if (key === 'e') { bus.focus = bus.interaction; window.dispatchEvent(new Event('werewolf-act')); } };
+    const up = (e: KeyboardEvent) => { keys.current[e.key.toLowerCase()] = false; };
+    const blur = () => { keys.current = {}; bus.stick = { x: 0, z: 0 }; };
+    const choice = (e: Event) => { const detail = (e as CustomEvent<{ target: string }>).detail; privateTarget.current = { id: detail.target, until: performance.now() / 1000 + 2 }; bus.focus = detail.target; };
+    window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', blur); window.addEventListener('werewolf-private-choice', choice);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); window.removeEventListener('werewolf-private-choice', choice); };
+  }, [bus]);
+  useFrame(({ clock }, dt) => {
+    const actualDelta = dt; dt = Math.min(dt, .05); elapsed.current = performance.now() / 1000 - start.current;
+    dealElapsed.current = performance.now() / 1000 - dealStarted.current;
+    gl.domElement.dataset.avatarX = String(bus.local.x); gl.domElement.dataset.avatarZ = String(bus.local.z);
+    const stats = performanceStats.current; stats.frames++; stats.time += actualDelta;
+    if (stats.time > 2) { gl.domElement.dataset.drawCalls = String(gl.info.render.calls); gl.domElement.dataset.fps = String(Math.round(stats.frames / stats.time)); if (stats.frames / stats.time < 30 || gl.info.render.calls > 220) setLow(); stats.frames = 0; stats.time = 0; }
+    const phase = view?.phase || 'lobby'; const d = ['day', 'vote', 'result'].includes(phase) ? 1 : 0;
+    if(scene.fog instanceof T.Fog)scene.fog.far=MOODS[phase].fog;
+    day.current = reduced ? d : T.MathUtils.damp(day.current, d, 1, dt);
+    const color = new T.Color().lerpColors(nightColor, dawnColor, day.current); scene.background = color; (scene.fog as T.Fog)?.color.copy(color);
+    if (ambient.current) ambient.current.intensity = .6 + .55 * day.current;
+    if (moonlight.current) moonlight.current.intensity = .5 + .7 * day.current;
+    const progress = phase === 'night' ? .12 + Math.min(.33, elapsed.current * .003) : .5;
+    if (orb.current) { orb.current.position.set(-80 * Math.cos(progress * Math.PI), 12 + 62 * Math.sin(progress * Math.PI), -85); (orb.current.material as T.MeshBasicMaterial).color.lerpColors(new T.Color('#e8e4ff'), new T.Color('#ffd35a'), day.current); moonlight.current?.position.copy(orb.current.position); }
+    if (stars.current) (stars.current.material as T.PointsMaterial).opacity = 1 - day.current;
+    skyBands.current?.children.forEach((mesh, i) => { const m = mesh as T.Mesh; (m.material as T.MeshBasicMaterial).color.lerpColors(new T.Color('#120a2a').lerp(new T.Color('#2a1a52'), i / 11), new T.Color('#3b3f8a').lerp(new T.Color('#ffb27a'), i / 11), day.current); });
+    const players = view?.players || []; const my = Math.max(0, players.findIndex(p => p.id === view?.me));
+    if (phase === 'day') {
+      let x = Number(keys.current.d || keys.current.arrowright || false) - Number(keys.current.a || keys.current.arrowleft || false) + bus.stick.x;
+      let z = Number(keys.current.s || keys.current.arrowdown || false) - Number(keys.current.w || keys.current.arrowup || false) + bus.stick.z;
+      const length = Math.hypot(x, z); if (length > 1) { x /= length; z /= length; }
+      bus.local.x += x * dt * 5; bus.local.z += z * dt * 5;
+      const r = Math.hypot(bus.local.x, bus.local.z); const radius = T.MathUtils.clamp(r, 2, 13); if (r) { bus.local.x *= radius / r; bus.local.z *= radius / r; }
+    }
+    const positions = players.map((p, i) => { if (phase === 'day') { if (p.id === view?.me) return new T.Vector3(bus.local.x, 0, bus.local.z); const remote = bus.remote.get(p.id); if (remote) return new T.Vector3(remote.x, 0, remote.z); } return new T.Vector3(...seat(i, players.length)); });
+    bus.interaction = null; let best = 2.6; positions.forEach((pos, i) => { if (i === my) return; const distance = pos.distanceTo(new T.Vector3(bus.local.x, 0, bus.local.z)); if (phase === 'day' && distance < best) { best = distance; bus.interaction = players[i].id; } });
+    if (ring.current) { ring.current.visible = !!bus.interaction; const at = positions[players.findIndex(p => p.id === bus.interaction)]; if (at) ring.current.position.set(at.x, .06, at.z); ring.current.scale.setScalar(reduced ? 1 : 1 + Math.sin(clock.elapsedTime * 6) * .08); }
+    const focus = bus.focus?.startsWith('center-') ? new T.Vector3((Number(bus.focus.slice(7)) - 1) * 1.2, 1, -3.4) : positions[players.findIndex(p => p.id === bus.focus)];
+    let target = focus?.clone() || new T.Vector3(0, 1.2, 0); const desired = new T.Vector3(target.x, 9.5, target.z + 17);
+    if (bus.overview || !view) { target = new T.Vector3(0, 1.2, 0); desired.set(0, 15, 21); }
+    if (!reduced && !bus.skipCamera) {
+      if (view?.round && elapsed.current < 4 && phase === 'night') { const a = elapsed.current * .7; desired.set(Math.sin(a) * 17, 10, Math.cos(a) * 17); }
+      else if (phase === 'night' && !focus) desired.x += Math.sin(clock.elapsedTime * .1) * 1.5;
+      if (phase === 'result' && view?.reveal) { const index = Math.floor((elapsed.current - .7) / .45); if (index >= 0 && index < positions.length) { target = positions[index].clone().add(new T.Vector3(0, 2, 0)); desired.copy(target).add(new T.Vector3(3, 4, 7)); if (view.reveal.banished.includes(players[index].id)) desired.x += Math.sin(elapsed.current * 70) * .09; } }
+    }
+    if(bus.introStarted!==null){const shot=introCamera((performance.now()-bus.introStarted)/1000);desired.set(shot.x,shot.y,shot.z);target.set(0,shot.targetY,0);}
+    camera.position.lerp(desired, reduced || bus.skipCamera ? 1 : 1 - Math.exp(-dt * 3)); camera.lookAt(target);
+    if (trail.current) {
+      const choice = privateTarget.current; const active = choice && choice.until > performance.now() / 1000; trail.current.visible = !!active;
+      if (active && choice) { const end = choice.id.startsWith('center-') ? new T.Vector3((Number(choice.id.slice(7)) - 1) * 1.2, 1, -3.4) : positions[players.findIndex(p => p.id === choice.id)]; if (end) { const from = positions[my] || new T.Vector3(); const center = from.clone().add(end).multiplyScalar(.5); trail.current.position.copy(center).add(new T.Vector3(0, 1, 0)); trail.current.scale.set(.06, from.distanceTo(end), .06); trail.current.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), end.clone().sub(from).normalize()); } }
+    }
+    if (projectile.current) { const hunted = view?.reveal?.hunted || []; const index = Math.floor((elapsed.current - 1.5) / .8); const victim = hunted[index]; projectile.current.visible = !!victim && !reduced; if (victim && view?.reveal) { const hunter = view.reveal.cards.findIndex(r => r === 'hunter'); const from = positions[hunter]; const to = positions[players.findIndex(p => p.id === victim)]; if (from && to) { const progress = ((elapsed.current - 1.5) % .8) / .8; projectile.current.position.copy(from).lerp(to, progress); projectile.current.position.y = 1 + Math.sin(progress * Math.PI) * 3; } } }
+  });
+  const players = view?.players || []; const winning = !!view?.reveal?.winningPlayers.includes(view.me);
+  return <><ambientLight ref={ambient} color="#8878c8" intensity={.4} /><directionalLight ref={moonlight} color="#b8b0ff" intensity={.6} position={[-30, 50, -40]} />
+    <group ref={skyBands}>{Array.from({ length: 12 }, (_, i) => <mesh key={i} position={[0, i * 9 - 8, -130]}><planeGeometry args={[340, 9]} /><meshBasicMaterial color="#140d2e" fog={false} /></mesh>)}</group>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><circleGeometry args={[36, 12]} /><Material color={COLORS.ground} /></mesh><mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .02, 0]} receiveShadow><circleGeometry args={[9, 12]} /><Material color={COLORS.clearing} /></mesh>
+    <Mountains /><WorldVFX view={view} low={low||bus.batterySaver} reduced={reduced}/>
+    <Vegetation low={low} reduced={reduced} /><Landmarks day={day} reduced={reduced} /><Fire low={low} reduced={reduced} /><Particles low={low} reduced={reduced} day={day} winning={winning} />
+    <points ref={stars}><bufferGeometry><bufferAttribute attach="attributes-position" args={[starPositions, 3]} /></bufferGeometry><pointsMaterial color="#ffffff" size={2} sizeAttenuation={false} transparent fog={false} /></points><mesh ref={orb}><sphereGeometry args={[4, 8, 6]} /><meshBasicMaterial color="#e8e4ff" fog={false} /></mesh>
+    <mesh position={[0, .15, -3.4]}><cylinderGeometry args={[1.8, 2, .3, 6]} /><Material color="#55506a" /></mesh>
+    {view && players.map((p, i) => <Character key={p.id} player={p} index={i} count={players.length} view={view} bus={bus} reduced={reduced} elapsed={elapsed} />)}
+    {view && view.phase !== 'lobby' && Array.from({ length: view.order.length + 3 }, (_, i) => <SceneCard key={`${view.round}-${i}`} index={i} view={view} elapsed={elapsed} dealElapsed={dealElapsed} reduced={reduced} />)}
+    <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[.8, 1.1, 10]} /><meshBasicMaterial color="#ffd35a" side={T.DoubleSide} /></mesh>
+    <mesh ref={trail} visible={false}><cylinderGeometry args={[1, 1, 1, 6]} /><meshBasicMaterial color="#ffd35a" transparent opacity={.65} depthWrite={false} /></mesh><mesh ref={projectile} visible={false}><octahedronGeometry args={[.16, 0]} /><meshBasicMaterial color="#ffd35a" /></mesh>
+  </>;
+}
+export default function Clearing(props: Props) {
+  const [gpu]=useState(detectGPU);const [tier,setTier]=useState<QualityTier>(()=>{const saved=localStorage.getItem('werewolf-quality') as QualityTier;return TIERS.includes(saved)?saved:gpu.tier});const quality=QUALITY[tier];const low=!quality.shadows;
+  const [prefersReduced] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);const reduced=prefersReduced||props.bus.calm;
+  const scale=props.bus.batterySaver?QUALITY.Minimum.scale:Math.min(innerWidth<700?.5:1/3,quality.scale);
+  const fallback = useRef(props.onFallback); fallback.current = props.onFallback;
+  const onFallback=props.onFallback;
+  useEffect(()=>{if(!gpu.available)onFallback();const change=(e:Event)=>setTier((e as CustomEvent<QualityTier>).detail);window.addEventListener('werewolf-quality',change);return()=>window.removeEventListener('werewolf-quality',change)},[gpu.available,onFallback]);
+  const tags = props.view?.players || []; const view = props.view;
+  return <div className="clearing" aria-label="3D campfire clearing" data-testid="clearing-3d"><Boundary fallback={props.onFallback}><Canvas frameloop={reduced&&!props.bus.exploring?'demand':'always'} camera={{ fov: 50, position: [0, 12, 17], near: .1, far: 300 }} dpr={scale} shadows={!low} gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }} onCreated={({ gl }) => { gl.domElement.addEventListener('webglcontextlost', () => fallback.current(), { once: true }); }}><World {...props} low={low} setLow={() => { props.bus.quality = 'low'; setTier(q=>TIERS[Math.max(0,TIERS.indexOf(q)-1)]); }} reduced={reduced} /></Canvas></Boundary>
+    <div className="world-tags">{tags.map(p => { const emote = view?.emotes.find(e => e.player === p.id); const ping = view?.emotes.some(e => e.target === p.id); const message = view?.chat.filter(m => m.player === p.id && !props.muted.includes(p.id)).at(-1); return <div className="world-tag" id={'tag-' + p.id} key={p.id}>{ping && <span className="point-ping">▼</span>}{emote && <span className="emote-bubble">{({ wave: '✋', point: '➜', shrug: '¯\_(ツ)_/¯', laugh: 'ha!', gasp: '!', 'thumbs up': '👍' })[emote.kind]}</span>}{message && Date.now() - message.at < 5500 && <span className="speech-bubble">{message.text}</span>}<button onClick={() => { props.bus.focus = p.id; }}>{p.name}{view?.claims.filter(c=>c.player===p.id).slice(-1).map(c=><small className="claim-badge" key={c.at}>claims {RULES[c.role].name}</small>)}</button></div>; })}</div><div className="vignette" />
+  </div>;
+}

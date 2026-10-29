@@ -1,0 +1,5 @@
+export const TIERS=['Minimum','Low','Medium','High','Ultra'] as const;
+export type QualityTier=typeof TIERS[number];
+export const QUALITY:Record<QualityTier,{scale:number;shadows:boolean;fps:number}>={Minimum:{scale:.18,shadows:false,fps:30},Low:{scale:.25,shadows:false,fps:30},Medium:{scale:.4,shadows:false,fps:45},High:{scale:.65,shadows:true,fps:60},Ultra:{scale:1,shadows:true,fps:60}};
+export function chooseTier(renderer:string,slow=false):QualityTier{return /swiftshader|llvmpipe|software|microsoft basic/i.test(renderer)||slow?'Minimum':/intel|mali|adreno/i.test(renderer)?'Medium':'High'}
+export function detectGPU():{tier:QualityTier;available:boolean;software:boolean}{const canvas=document.createElement('canvas'),gl=canvas.getContext('webgl2',{antialias:false,powerPreference:'high-performance'});if(!gl)return{tier:'Minimum',available:false,software:false};const debug=gl.getExtension('WEBGL_debug_renderer_info'),renderer=debug?String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)):'';const tier=chooseTier(renderer);gl.getExtension('WEBGL_lose_context')?.loseContext();return{tier,available:true,software:tier==='Minimum'}}

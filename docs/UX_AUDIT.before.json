@@ -1,0 +1,326 @@
+{
+  "lobby": [
+    {
+      "width": 360,
+      "controls": [
+        "Copy invite link",
+        "Deal the cards",
+        "Manage the fire",
+        "Roles in this game",
+        "Rules in 30 seconds",
+        "Card gallery",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "Copy invite link",
+        "Deal the cards",
+        "Manage the fire",
+        "Roles in this game",
+        "Rules in 30 seconds",
+        "Card gallery",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "Copy invite link",
+        "Deal the cards",
+        "Manage the fire",
+        "Roles in this game",
+        "Rules in 30 seconds",
+        "Card gallery",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    }
+  ],
+  "night": [
+    {
+      "width": 360,
+      "controls": [
+        "Lock it in",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "Lock it in",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "Lock it in",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    }
+  ],
+  "dawn": [
+    {
+      "width": 360,
+      "controls": [
+        "I’m ready",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "I’m ready",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "I’m ready",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    }
+  ],
+  "day": [
+    {
+      "width": 360,
+      "controls": [
+        "Remind me what I learned",
+        "+1 min",
+        "Call the vote",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Private notepad · only on this device",
+        "Ready to vote",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Focus / overview",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "Remind me what I learned",
+        "+1 min",
+        "Call the vote",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Private notepad · only on this device",
+        "Ready to vote",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Focus / overview",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "Remind me what I learned",
+        "+1 min",
+        "Call the vote",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Private notepad · only on this device",
+        "Ready to vote",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Focus / overview",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    }
+  ],
+  "vote": [
+    {
+      "width": 360,
+      "controls": [
+        "Audit 1",
+        "Audit 2",
+        "Audit 3",
+        "Confirm",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Private notepad · only on this device",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "Audit 1",
+        "Audit 2",
+        "Audit 3",
+        "Confirm",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Private notepad · only on this device",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "Audit 1",
+        "Audit 2",
+        "Audit 3",
+        "Confirm",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Private notepad · only on this device",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    }
+  ],
+  "result": [
+    {
+      "width": 360,
+      "controls": [
+        "Your night recap · only your own actions",
+        "Session scoreboard & highlights",
+        "Play again",
+        "See every vote",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "Your night recap · only your own actions",
+        "Session scoreboard & highlights",
+        "Play again",
+        "See every vote",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "Your night recap · only your own actions",
+        "Session scoreboard & highlights",
+        "Play again",
+        "See every vote",
+        "Manage the fire",
+        "Roles in this game",
+        "Card gallery",
+        "Setup presets & play helpers",
+        "Emotes & point",
+        "Comfort, accessibility & tutorial",
+        "Clearing, narrator & room settings",
+        "Settings & how to play",
+        "Leave room"
+      ]
+    }
+  ]
+}

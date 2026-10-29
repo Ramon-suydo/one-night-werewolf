@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>One Night Werewolf 3D</title>
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;overflow:hidden;background:#140d2e;color:#f4efe0;font:22px/1.15 VT323,"Courier New",monospace;touch-action:none;user-select:none}
+#gl{position:fixed;inset:0;width:100%;height:100%;image-rendering:pixelated}
+.box{background:#1a1226f0;box-shadow:0 0 0 4px #ffd35a,0 0 0 8px #1a1226;padding:14px 18px}
+h1{font:700 26px/1.15 Silkscreen,monospace;color:#ffd35a;text-shadow:3px 3px 0 #d6455d;margin-bottom:8px}
+.btn{font:700 14px Silkscreen,monospace;background:#d6455d;color:#f4efe0;border:0;padding:12px 16px;box-shadow:0 4px 0 #7d1f33,0 0 0 3px #1a1226;cursor:pointer;margin-top:12px}
+.btn:active{transform:translateY(4px);box-shadow:0 0 0 #0000,0 0 0 3px #1a1226}
+.btn:focus-visible{outline:3px solid #ffd35a;outline-offset:3px}
+#modal{position:fixed;left:50%;top:46%;transform:translate(-50%,-50%);width:min(480px,90vw);text-align:center;z-index:5}
+#role{position:fixed;left:14px;top:calc(14px + env(safe-area-inset-top,0px));width:min(250px,60vw);z-index:3;display:none}
+#role b{font:700 15px Silkscreen,monospace;color:#ffd35a}
+#msg{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(560px,92vw);text-align:center;z-index:3}
+#acts{position:fixed;right:14px;bottom:calc(86px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;z-index:4}
+#mu{position:fixed;right:10px;top:calc(10px + env(safe-area-inset-top,0px));z-index:6;font-size:11px;padding:8px 10px;margin:0;background:#3a2a6a;box-shadow:0 4px 0 #1f1440,0 0 0 3px #1a1226}
+#tags{position:fixed;inset:0;pointer-events:none;z-index:2}
+.tag{position:absolute;transform:translate(-50%,-100%);text-align:center;white-space:nowrap;text-shadow:2px 2px 0 #140d2e}
+.tag span{display:block;background:#1a1226f0;box-shadow:0 0 0 2px #ffd35a;padding:2px 8px;margin-bottom:4px;max-width:220px;white-space:normal;font-size:19px}
+#clock{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);font:700 22px Silkscreen,monospace;color:#ffd35a;z-index:3}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style></head>
+<body>
+<canvas id="gl" aria-label="3D campfire clearing"></canvas>
+<div id="tags"></div><div id="clock"></div>
+<div id="role" class="box"></div>
+<div id="msg" class="box" style="display:none"></div>
+<div id="acts"><button id="act" class="btn" style="display:none">Act (E)</button><button id="done" class="btn" style="display:none">Close eyes</button></div>
+<button id="mu" class="btn" type="button">Music on</button>
+<div id="modal" class="box"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $=s=>document.querySelector(s),T=THREE,sh=a=>{a=a.slice();for(let i=a.length;i>1;){const j=Math.floor(Math.random()*i--);[a[i],a[j]]=[a[j],a[i]]}return a};
+const M=c=>new T.MeshLambertMaterial({color:c,flatShading:true});
+const R={wolf:['Werewolf','🐺','#7a2f3f','Hunt in the dark. If you’re alone, peek at one center card.'],seer:['Seer','👁','#4a2f7a','Look at one player, or at two center cards.'],robber:['Robber','🎭','#2f4a7a','Swap with a player and see your new card.'],troublemaker:['Troublemaker','🔀','#8a5a2f','Swap two other players without looking.'],villager:['Villager','🏠','#2f6a4a','No powers. Find the wolves.']};
+/* ---------- renderer: low-res canvas scaled up = chunky pixels ---------- */
+const cv=$('#gl'),ren=new T.WebGLRenderer({canvas:cv,antialias:false}),scene=new T.Scene(),cam=new T.PerspectiveCamera(50,1,.1,300);
+scene.fog=new T.Fog(0x140d2e,28,80);
+const fit=()=>{const px=innerWidth<700?2:3;ren.setSize(Math.floor(innerWidth/px),Math.floor(innerHeight/px),false);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()};
+addEventListener('resize',fit);fit();
+const amb=new T.AmbientLight(0x8878c8,.4),dl=new T.DirectionalLight(0xb8b0ff,.6),fl=new T.PointLight(0xff8a3c,1.8,24);
+fl.position.set(0,1.6,0);scene.add(amb,dl,fl);
+/* ---------- world ---------- */
+const g0=new T.Mesh(new T.CircleGeometry(36,12),M(0x1f2a2e));g0.rotation.x=-Math.PI/2;scene.add(g0);
+const g1=new T.Mesh(new T.CircleGeometry(9,12),M(0x3a2a22));g1.rotation.x=-Math.PI/2;g1.position.y=.02;scene.add(g1);
+for(let i=0;i<16;i++){const a=i/16*6.283+Math.random()*.3,d=44+Math.random()*10,h=14+Math.random()*16,r=7+Math.random()*5,m=new T.Mesh(new T.ConeGeometry(r,h,5),M(i%2?0x33286a:0x2c2058));
+ m.position.set(Math.sin(a)*d,h/2,Math.cos(a)*d);m.rotation.y=Math.random()*3;scene.add(m);
+ const s=new T.Mesh(new T.ConeGeometry(r*.32,h*.3,5),M(0xaab0f0));s.position.set(m.position.x,h*.88,m.position.z);s.rotation.y=m.rotation.y;scene.add(s)}
+for(let i=0;i<46;i++){const a=Math.random()*6.283,d=16+Math.random()*22,x=Math.sin(a)*d,z=Math.cos(a)*d,s=.8+Math.random()*.8,g=new T.Group();
+ const tr=new T.Mesh(new T.CylinderGeometry(.25,.3,1.2,5),M(0x3a2418));tr.position.y=.6;g.add(tr);
+ [0,1,2].forEach(k=>{const c=new T.Mesh(new T.ConeGeometry(2.2-k*.55,2.4,5),M(k%2?0x1d4a3c:0x0e3a34));c.position.y=2+k*1.3;g.add(c)});
+ g.position.set(x,0,z);g.scale.setScalar(s);scene.add(g)}
+const logs=[0,1,2].map(i=>{const l=new T.Mesh(new T.BoxGeometry(2,.3,.35),M(0x5a3a24));l.rotation.y=i*1.05;l.position.y=.2;scene.add(l);return l});
+const flames=[[0xd6455d,.55,1.8],[0xff8a3c,.4,1.5],[0xffd35a,.25,1.1]].map(([c,r,h])=>{const f=new T.Mesh(new T.ConeGeometry(r,h,5),new T.MeshBasicMaterial({color:c}));f.position.y=h/2+.2;scene.add(f);return f});
+const alt=new T.Mesh(new T.CylinderGeometry(1.8,2,.3,6),M(0x55506a));alt.position.set(0,.15,-3.4);scene.add(alt);
+const sg=new T.BufferGeometry(),sp=[];for(let i=0;i<260;i++){const a=Math.random()*6.28,e=Math.random()*1.2+.15;sp.push(Math.cos(a)*Math.cos(e)*120,Math.sin(e)*120,Math.sin(a)*Math.cos(e)*120)}
+sg.setAttribute('position',new T.Float32BufferAttribute(sp,3));const stM=new T.PointsMaterial({color:0xffffff,size:2,sizeAttenuation:false,transparent:true,fog:false});scene.add(new T.Points(sg,stM));
+const orb=new T.Mesh(new T.SphereGeometry(4,8,6),new T.MeshBasicMaterial({color:0xe8e4ff,fog:false}));scene.add(orb);
+const ring=new T.Mesh(new T.RingGeometry(.8,1.1,10),new T.MeshBasicMaterial({color:0xffd35a,side:2}));ring.rotation.x=-Math.PI/2;ring.position.y=.05;ring.visible=false;scene.add(ring);
+/* ---------- cards ---------- */
+function tex(r){const c=document.createElement('canvas');c.width=64;c.height=88;const x=c.getContext('2d');
+ x.fillStyle=r?R[r][2]:'#3a2a6a';x.fillRect(0,0,64,88);x.strokeStyle='#ffd35a';x.lineWidth=4;x.strokeRect(2,2,60,84);
+ if(r){x.font='30px sans-serif';x.textAlign='center';x.fillText(R[r][1],32,50);x.fillStyle='#f4efe0';x.font='bold 9px monospace';x.fillText(R[r][0],32,76)}
+ else{x.fillStyle='#7b4fbf';x.beginPath();x.moveTo(32,24);x.lineTo(50,44);x.lineTo(32,64);x.lineTo(14,44);x.fill()}
+ const t=new T.CanvasTexture(c);t.magFilter=T.NearestFilter;return t}
+const backT=tex(null),CD=[];
+function mkCard(r){const s=new T.MeshBasicMaterial({color:0x2a1a52}),m=new T.Mesh(new T.BoxGeometry(.8,1.1,.06),[s,s,s,s,new T.MeshBasicMaterial({map:tex(r)}),new T.MeshBasicMaterial({map:backT})]);
+ m.rotation.y=Math.PI;m.userData={to:Math.PI};scene.add(m);CD.push(m);return m}
+const flipTo=(m,up)=>m.userData.to=up?0:Math.PI;
+/* ---------- characters (all identical shapes, only cloak color differs) ---------- */
+function mkChar(col){const g=new T.Group(),b=new T.Mesh(new T.CylinderGeometry(.35,.5,1,6),M(col));b.position.y=1;g.add(b);
+ const h=new T.Mesh(new T.IcosahedronGeometry(.38,0),M(0xf0b98d));h.position.y=1.8;g.add(h);
+ const hood=new T.Mesh(new T.ConeGeometry(.45,.55,5),M(col));hood.position.y=2.35;g.add(hood);
+ [-.14,.14].forEach(x=>{const e=new T.Mesh(new T.BoxGeometry(.08,.08,.05),M(0x1a1226));e.position.set(x,1.85,.33);g.add(e)});
+ g.userData.legs=[-.17,.17].map(x=>{const p=new T.Group(),l=new T.Mesh(new T.BoxGeometry(.2,.55,.2),M(0x1a1226));l.position.y=-.27;p.add(l);p.position.set(x,.55,0);g.add(p);return p});
+ g.userData.body=b;scene.add(g);return g}
+const names=['You','Mira','Odo','Tess','Rook'],cols=[0xffd35a,0x4a7bd6,0x4fae6a,0x7b4fbf,0xc0702a],P=[],tagsEl=$('#tags');
+names.forEach((n,i)=>{const a=i/5*6.283,g=mkChar(cols[i]);g.position.set(Math.sin(a)*5.5,0,Math.cos(a)*5.5);g.rotation.y=a+Math.PI;
+ const tg=document.createElement('div');tg.className='tag';tg.innerHTML='<span style="display:none"></span><b>'+n+'</b>';tagsEl.append(tg);
+ P.push({n,g,seat:[g.position.x,g.position.z],goal:null,wt:0,dead:false,tag:tg,say:tg.firstChild,st:0,moving:0})});
+const C=[-1.2,0,1.2].map(x=>{const m=mkCard('villager');m.position.set(x,.95,-3.4);return m});
+C.forEach((m,i)=>{m.userData.to=Math.PI});
+/* ---------- input ---------- */
+const keys={};let joy={x:0,y:0},jo=null;
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=1;if(k==='e'||k===' ')act()});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+addEventListener('touchstart',e=>{const t=e.touches[0];if(t.clientX<innerWidth*.6&&!e.target.closest('button'))jo=[t.clientX,t.clientY]});
+addEventListener('touchmove',e=>{if(!jo)return;const t=e.touches[0];joy={x:Math.max(-1,Math.min(1,(t.clientX-jo[0])/50)),y:Math.max(-1,Math.min(1,(t.clientY-jo[1])/50))}});
+addEventListener('touchend',()=>{jo=null;joy={x:0,y:0}});
+$('#act').onclick=()=>act();$('#done').onclick=()=>done();
+/* ---------- audio ---------- */
+let AC;const mus={on:true};
+const beep=(f=440,d=.08)=>{if(!mus.on)return;try{AC=AC||new AudioContext();const o=AC.createOscillator(),g=AC.createGain();o.type='square';o.frequency.value=f;g.gain.value=.04;o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}};
+const SC=[[220,261.6,293.7,329.6,392,440,523.3,587.3],[261.6,293.7,329.6,392,440,523.3,587.3,659.3]],BS=[[55,82.4,110],[65.4,98,130.8]];
+function musicStart(){if(mus.c)return;try{const c=mus.c=new AudioContext(),m=mus.m=c.createGain(),lp=c.createBiquadFilter(),dl2=c.createDelay(1),fb=c.createGain();
+ m.gain.value=.55;lp.type='lowpass';lp.frequency.value=1100;dl2.delayTime.value=.45;fb.gain.value=.4;lp.connect(m);lp.connect(dl2);dl2.connect(fb);fb.connect(dl2);dl2.connect(m);m.connect(c.destination);
+ const dr=BS[0].map((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.type=i?'triangle':'sine';o.frequency.value=f;o.detune.value=i*5;g.gain.value=.045;o.connect(g);g.connect(lp);o.start();return o});let ix=3;
+ setInterval(()=>{if(!mus.on||c.state!=='running')return;const mood=day>.5?1:0,t=c.currentTime;dr.forEach((o,i)=>o.frequency.setTargetAtTime(BS[mood][i],t,2));if(Math.random()<.35)return;
+  ix=Math.max(0,Math.min(7,ix+Math.floor(Math.random()*5)-2));const o=c.createOscillator(),g=c.createGain();o.type='triangle';o.frequency.value=SC[mood][ix];
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.07,t+.02);g.gain.exponentialRampToValueAtTime(.0005,t+1.6);o.connect(g);g.connect(lp);o.start(t);o.stop(t+1.7)},620)}catch(e){}}
+addEventListener('pointerdown',musicStart,{once:true});
+$('#mu').onclick=()=>{mus.on=!mus.on;if(mus.m)mus.m.gain.setTargetAtTime(mus.on?.55:0,mus.c.currentTime,.2);$('#mu').textContent=mus.on?'Music on':'Music off'};
+/* ---------- game ---------- */
+let G={phase:'title'},day=0,dayT=0,prog=.12,progT=.12,near=null;
+const say=t=>{const m=$('#msg');m.style.display=t?'block':'none';m.textContent=t||''};
+function modal(h,p,b,f){const m=$('#modal');m.innerHTML='<h1>'+h+'</h1><p>'+p+'</p>';if(b){const x=document.createElement('button');x.className='btn';x.textContent=b;x.onclick=()=>{m.style.display='none';beep(520);f()};m.append(x)}m.style.display='block'}
+function title(){G={phase:'title'};dayT=0;progT=.12;$('#role').style.display='none';$('#clock').textContent='';say();$('#act').style.display=$('#done').style.display='none';
+ modal('One Night<br>Werewolf 3D','Walk the clearing around the fire with four other villagers. WASD or arrows to walk, E to act. On a phone, drag the left side to walk and use the buttons.','Sit at the fire',start)}
+function start(){
+ const deck=sh(['wolf','wolf','seer','robber','troublemaker','villager','villager','villager']);
+ G={phase:'night',orig:deck.slice(0,5),cards:deck.slice(),act:{s:[],t:[]},V:[],acc:[0,0,0,0,0],nt:0,done:false};
+ P.forEach((p,i)=>{p.dead=false;p.g.rotation.z=0;p.g.position.set(p.seat[0],0,p.seat[1]);p.say.style.display='none'});
+ C.forEach(m=>{m.material[4].map=null});CD.filter(m=>m.userData.tmp).forEach(m=>{scene.remove(m)});
+ for(let k=0;k<3;k++){const m=C[k];m.material[4]=new T.MeshBasicMaterial({map:tex(deck[5+k])});m.userData.to=Math.PI}
+ CD.splice(0,CD.length,...C);
+ const r=G.orig[0],mate=G.orig.map((o,i)=>o==='wolf'&&i>0?i:-1).filter(i=>i>=0);G.lone=r==='wolf'&&!mate.length;
+ const rl=$('#role');rl.style.display='block';rl.innerHTML='<b>You are the '+R[r][0]+'</b><br>'+R[r][1]+' '+R[r][3]+(r==='wolf'&&mate.length?'<br>Your pack: '+names[mate[0]]+'.':'');
+ $('#done').style.display='block';$('#done').textContent='Close eyes';
+ say(r==='villager'?'Nothing to do tonight. Close your eyes when you’re ready.':r==='wolf'?(G.lone?'You’re alone. Walk to a center card and press E, or close your eyes.':'Your pack mate is known. Close your eyes when ready.'):r==='seer'?'Walk to a player or a center card and press E.':r==='robber'?'Walk up to a player and press E to swap cards.':'Walk up to two players and press E on each.');
+ beep(330,.2);
+}
+const tgs=()=>[...P.slice(1).map((p,i)=>({id:i+1,pos:p.g.position})),...C.map((m,k)=>({id:5+k,pos:m.position}))];
+function valid(id){const r=G.orig[0];if(G.phase==='vote')return id>=1&&id<=4&&G.V[0]==null;if(G.phase!=='night'||G.done)return false;
+ if(r==='wolf')return G.lone&&id>=5&&G.act.c==null;if(r==='seer')return G.act.s.length<2&&!G.act.s.includes(id)&&(G.act.s.length===0||(id>=5&&G.act.s[0]>=5));
+ if(r==='robber')return id<=4&&G.act.t.length<1;if(r==='troublemaker')return id<=4&&!G.act.t.includes(id);return false}
+function act(){if(!near||!valid(near.id))return;const id=near.id,r=G.orig[0];beep(660,.1);
+ if(G.phase==='vote'){G.V[0]=id;say('You voted for '+names[id]+'.');setTimeout(finish,900);return}
+ if(r==='wolf'){G.act.c=id;peek(id);say('Center '+(id-4)+' is the '+R[G.cards[id]][0]+'.');return finishSoon()}
+ if(r==='seer'){G.act.s.push(id);peek(id);if(id<=4||G.act.s.length===2){say(id<=4?names[id]+' is the '+R[G.cards[id]][0]+'.':'You saw two center cards.');finishSoon()}else say('One more center card, or close your eyes.');return}
+ if(r==='robber'){G.act.t=[id];say('You swapped with '+names[id]+'.');return finishSoon()}
+ if(r==='troublemaker'){G.act.t.push(id);if(G.act.t.length===2){say('You swapped '+names[G.act.t[0]]+' and '+names[G.act.t[1]]+'.');finishSoon()}else say('Picked '+names[id]+'. Now pick another player.')}}
+function peek(id){if(id>=5){flipTo(C[id-5],1);setTimeout(()=>flipTo(C[id-5],0),3500)}else{const m=mkCard(G.cards[id]);m.userData.tmp=1;m.userData.f=id;flipTo(m,1);setTimeout(()=>{scene.remove(m);CD.splice(CD.indexOf(m),1)},3500)}}
+const finishSoon=()=>{if(!G.done&&!G.fin){G.fin=1;setTimeout(done,2200)}};
+function done(){if(G.phase!=='night'||G.done)return;G.done=true;$('#done').style.display='none';say('You close your eyes…');setTimeout(resolve,1200)}
+function resolve(){
+ const c=G.cards,o=G.orig,I=[],bk={},who=r=>o.map((x,i)=>x===r?i:-1).filter(i=>i>=0),rp=(ex,hi=5)=>{let k;do k=Math.floor(Math.random()*hi);while(ex.includes(k));return k};
+ who('seer').forEach(i=>{if(i===0){const s=G.act.s;if(s.length)I.push(s[0]<=4?names[s[0]]+' is the '+R[c[s[0]]][0]+'.':'Center cards: '+s.map(k=>R[c[k]][0]).join(' and ')+'.')}
+  else{const k=rp([i]);bk[i]={t:'seer',k,r:c[k]}}});
+ who('robber').forEach(i=>{const t=i===0?G.act.t[0]:rp([i]);if(t!=null){[c[i],c[t]]=[c[t],c[i]];if(i===0)I.push('You swapped with '+names[t]+'. You are now the '+R[c[0]][0]+'.');else bk[i]={t:'rob',w:t,r:c[i]}}});
+ who('troublemaker').forEach(i=>{let a,b;if(i===0){[a,b]=G.act.t}else{a=rp([i]);b=rp([i,a])}if(a!=null&&b!=null){[c[a],c[b]]=[c[b],c[a]];if(i===0)I.push('You swapped '+names[a]+' and '+names[b]+'.');else bk[i]={t:'tm',a,b}}});
+ if(G.lone&&G.act.c!=null)I.unshift('Center '+(G.act.c-4)+' was the '+R[G.cards[G.act.c]===c[G.act.c]?c[G.act.c]:c[G.act.c]][0]+'.');
+ G.bk=bk;dayT=1;progT=.5;G.phase='dawn';say();
+ modal('Dawn breaks',(I.length?I.join('<br>'):'Nothing woke you. The night passed quietly.')+'<br><br>Walk around, listen to the others, then call the vote.','Join the circle',startDay);
+}
+function startDay(){G.phase='day';G.t=50;G.next=1;$('#done').style.display='block';$('#done').textContent='Call the vote';say('Talk it out. Everyone may lie. You can walk up to people.')}
+function claim(i){const o=G.orig[i],b=G.bk[i],oth=()=>{let k;do k=Math.floor(Math.random()*5);while(k===i);return k},wl=[0,1,2,3,4].filter(j=>G.orig[j]==='wolf');
+ if(o==='wolf'){const t=oth();if(Math.random()<.5&&!wl.includes(t)){G.acc[t]++;return 'I’m the Seer. '+names[t]+' is a werewolf!'}return 'I’m just a villager. Slept like a log.'}
+ if(o==='seer'&&b){if(b.k<=4){if(b.r==='wolf')G.acc[b.k]+=2;return 'I’m the Seer. '+names[b.k]+' is the '+R[b.r][0]+'.'}return 'I’m the Seer. I peeked at the center.'}
+ if(o==='robber'&&b)return 'I’m the Robber. I swapped with '+names[b.w]+' and I’m the '+R[b.r][0]+' now.';
+ if(o==='troublemaker'&&b)return 'I’m the Troublemaker. I swapped '+names[b.a]+' and '+names[b.b]+'.';
+ return Math.random()<.5?'I’m a villager. Nothing happened.':'Who do we trust? I’ve got nothing.'}
+function bubble(i,t){const s=P[i].say;s.textContent=t;s.style.display='block';clearTimeout(P[i].bt);P[i].bt=setTimeout(()=>s.style.display='none',5200)}
+function vote(){if(G.phase!=='day')return;G.phase='vote';$('#done').style.display='none';$('#clock').textContent='';P.forEach(p=>p.say.style.display='none');say('Walk up to who you think is a werewolf and press E.')}
+function botVote(i){const wl=[0,1,2,3,4].filter(j=>G.orig[j]==='wolf'),isW=G.orig[i]==='wolf';let c=[0,1,2,3,4].filter(j=>j!==i&&!(isW&&wl.includes(j)));
+ const mx=Math.max(...c.map(j=>G.acc[j]));if(mx>0)c=c.filter(j=>G.acc[j]===mx);return c[Math.floor(Math.random()*c.length)]}
+function finish(){
+ if(G.phase!=='vote')return;G.phase='result';say();[1,2,3,4].forEach(i=>G.V[i]=botVote(i));
+ const c=G.cards,v=[0,0,0,0,0];G.V.forEach(t=>v[t]++);const mx=Math.max(...v),dead=mx>1?v.map((x,i)=>x===mx?i:-1).filter(i=>i>=0):[],
+  wl=[0,1,2,3,4].filter(i=>c[i]==='wolf'),vill=wl.length?dead.some(i=>wl.includes(i)):!dead.length,youW=c[0]==='wolf',won=youW?!vill:vill;
+ for(let i=0;i<5;i++){const m=mkCard(c[i]);m.userData.f=i;m.userData.tmp=1;setTimeout(()=>{flipTo(m,1);beep(200+i*60,.12);if(dead.includes(i))P[i].dead=true},700+i*600)}
+ for(let k=0;k<3;k++)setTimeout(()=>flipTo(C[k],1),700+(5+k)*600);
+ setTimeout(()=>{beep(vill?880:140,.4);modal(vill?'Victory for the village!':'Victory for the werewolves!',(dead.length?'Banished: '+dead.map(i=>names[i]).join(', ')+'.':'Nobody was banished.')+'<br>You were the '+R[c[0]][0]+' at the end, so you '+(won?'<b>win</b>.':'<b>lose</b>.')+'<br>Votes: '+v.map((x,i)=>names[i]+' '+x).join(', '),'Play again',start)},700+8*600+600);
+}
+/* ---------- main loop ---------- */
+const clk=new T.Clock(),NC=new T.Color(0x140d2e),DC=new T.Color(0xe8a07a),tmp=new T.Color(),v3=new T.Vector3();let t=0;
+function loop(){requestAnimationFrame(loop);const dt=Math.min(.05,clk.getDelta());t+=dt;
+ day+=(dayT-day)*.02;prog+=(progT-prog)*.01;if(G.phase==='night'){G.nt+=dt;progT=Math.min(.45,.12+G.nt*.01)}
+ tmp.lerpColors(NC,DC,day);scene.background=tmp;scene.fog.color.copy(tmp);amb.intensity=.35+.55*day;dl.intensity=.5+.7*day;stM.opacity=1-day;
+ const a=prog*Math.PI;orb.position.set(-80*Math.cos(a),12+62*Math.sin(a),-85);orb.material.color.lerpColors(new T.Color(0xe8e4ff),new T.Color(0xffd35a),day);dl.position.copy(orb.position);
+ fl.intensity=1.5+Math.sin(t*23)*.3+Math.random()*.3;flames.forEach((f,i)=>{f.scale.set(1+Math.sin(t*9+i)*.12,.85+Math.random()*.4,1);f.rotation.y+=dt*2});
+ /* you */
+ const pl=P[0],g=pl.g,play=['night','day','vote'].includes(G.phase)&&!(G.phase==='night'&&G.done);
+ let mx=((keys.d||keys.arrowright)?1:0)-((keys.a||keys.arrowleft)?1:0)+joy.x,mz=((keys.s||keys.arrowdown)?1:0)-((keys.w||keys.arrowup)?1:0)+joy.y;const l=Math.hypot(mx,mz);
+ pl.moving=0;if(play&&l>.1){const k=Math.min(1,l)/l*5*dt;g.position.x+=mx*k;g.position.z+=mz*k;g.rotation.y=Math.atan2(mx,mz);pl.moving=1}
+ P.forEach((p,i)=>{const q=p.g;
+  if(i>0){p.moving=0;if(G.phase==='day'||G.phase==='vote'){p.wt-=dt;if(p.wt<=0||!p.goal){p.wt=2+Math.random()*4;const an=Math.random()*6.283,d=3.2+Math.random()*3.8;p.goal=[Math.sin(an)*d,Math.cos(an)*d]}
+    const dx=p.goal[0]-q.position.x,dz=p.goal[1]-q.position.z,dd=Math.hypot(dx,dz);if(dd>.25){q.position.x+=dx/dd*2.6*dt;q.position.z+=dz/dd*2.6*dt;q.rotation.y=Math.atan2(dx,dz);p.moving=1}}
+   else if(G.phase==='night'||G.phase==='dawn')q.rotation.y=Math.atan2(-q.position.x,-q.position.z)}
+  const r=Math.hypot(q.position.x,q.position.z);if(r>14){q.position.x*=14/r;q.position.z*=14/r}if(r<1.6){q.position.x*=1.6/Math.max(r,.01);q.position.z*=1.6/Math.max(r,.01)}
+  p.st+=dt*(p.moving?10:0);const sw=p.moving?Math.sin(p.st)*.7:0;q.userData.legs[0].rotation.x=sw;q.userData.legs[1].rotation.x=-sw;q.userData.body.position.y=1+(p.moving?Math.abs(Math.sin(p.st))*.08:0);
+  q.rotation.z+=((p.dead?Math.PI/2:0)-q.rotation.z)*.1;
+  v3.set(q.position.x,3.1,q.position.z).project(cam);p.tag.style.left=(v3.x*.5+.5)*innerWidth+'px';p.tag.style.top=(-v3.y*.5+.5)*innerHeight+'px';p.tag.style.display=v3.z<1?'block':'none'});
+ /* day talk */
+ if(G.phase==='day'){G.t-=dt;G.next-=dt;$('#clock').textContent=Math.floor(Math.max(0,G.t)/60)+':'+String(Math.floor(Math.max(0,G.t)%60)).padStart(2,'0');
+  if(G.next<=0){G.next=3+Math.random()*2.5;const i=1+Math.floor(Math.random()*4);bubble(i,claim(i))}if(G.t<=0)vote()}
+ /* interaction */
+ near=null;let bd=2.6;tgs().forEach(o=>{const d=Math.hypot(o.pos.x-g.position.x,o.pos.z-g.position.z);if(d<bd&&valid(o.id)){bd=d;near=o}});
+ ring.visible=!!near;if(near){ring.position.x=near.pos.x;ring.position.z=near.pos.z;ring.scale.setScalar(1+Math.sin(t*6)*.08)}
+ $('#act').style.display=near?'block':'none';
+ CD.forEach(m=>{const f=m.userData.f;if(f!=null){m.position.set(P[f].g.position.x,3.9+Math.sin(t*2+f)*.1,P[f].g.position.z)}m.rotation.y+=(m.userData.to-m.rotation.y)*.12;if(m.userData.f!=null)m.rotation.y=Math.round(m.rotation.y*6)/6});
+ cam.position.x+=(g.position.x-cam.position.x)*.06;cam.position.z+=(g.position.z+12-cam.position.z)*.06;cam.position.y=9.5;cam.lookAt(cam.position.x,1.2,cam.position.z-12);
+ ren.render(scene,cam)}
+title();loop();
+</script></body></html>

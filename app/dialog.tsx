@@ -1,0 +1,7 @@
+'use client';
+import {useEffect,useRef,type ReactNode} from 'react';
+export function Modal({label,onClose,children,className=''}:{label:string;onClose:()=>void;children:ReactNode;className?:string}){
+ const ref=useRef<HTMLElement>(null),close=useRef(onClose);useEffect(()=>{close.current=onClose},[onClose]);
+ useEffect(()=>{const previous=document.activeElement as HTMLElement|null;const root=ref.current;root?.querySelector<HTMLElement>('button,input,select,textarea,a[href]')?.focus();const key=(e:KeyboardEvent)=>{const dialogs=document.querySelectorAll('[role="dialog"][aria-modal="true"]');if(dialogs[dialogs.length-1]!==root)return;if(e.key==='Escape'){e.preventDefault();close.current()}if(e.key==='Tab'&&root){const focus=[...root.querySelectorAll<HTMLElement>('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]')];if(!focus.length)return;const i=focus.indexOf(document.activeElement as HTMLElement);if(e.shiftKey&&i<=0){e.preventDefault();focus.at(-1)?.focus()}else if(!e.shiftKey&&(i<0||i===focus.length-1)){e.preventDefault();focus[0].focus()}}};document.addEventListener('keydown',key);return()=>{document.removeEventListener('keydown',key);previous?.focus()}},[]);
+ return <div className="sheet-backdrop" onClick={onClose}><section ref={ref} role="dialog" aria-modal="true" aria-label={label} className={'rules-sheet '+className} onClick={e=>e.stopPropagation()}>{children}</section></div>
+}

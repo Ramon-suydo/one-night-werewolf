@@ -1,0 +1,13 @@
+import {test,expect} from '@playwright/test';
+import fs from 'node:fs';
+test('four-player phase audit at phone, tablet and desktop widths',async({page})=>{
+ await page.emulateMedia({reducedMotion:'reduce'});await page.goto('/');await page.getByLabel('Your name',{exact:true}).fill('Audit');await page.getByRole('button',{name:'Create room',exact:true}).click();await expect(page.locator('.room-code')).toBeVisible();
+ const code=await page.locator('.room-code').innerText(),host=await page.evaluate(()=>localStorage.getItem('werewolf-token')!);const tokens=[host,...[1,2,3].map(i=>i.toString().repeat(64))];
+ const command=async(token:string,command:object,round=0)=>{const r=await page.request.post('/api/game',{headers:{'x-player-token':token},data:{code,round,requestId:crypto.randomUUID(),command}});expect(r.ok()).toBe(true);return r.json()};
+ for(let i=1;i<4;i++)await command(tokens[i],{type:'join',name:'Audit '+i});
+ const audit:Record<string,unknown[]>={};
+ const capture=async(phase:string)=>{audit[phase]=[];for(const width of [360,768,1280]){await page.setViewportSize({width,height:900});await page.screenshot({path:`test-results/audit-${phase}-${width}.png`});const controls=await page.locator('#app button:visible,#app input:visible,#app select:visible,#app summary:visible,#app a:visible').allTextContents();audit[phase].push({width,controls:controls.map(t=>t.trim()).filter(Boolean)})}};
+ await capture('lobby');await command(host,{type:'deal'});await expect(page.getByRole('heading',{name:/^You are the /})).toBeVisible();await capture('night');
+ for(const token of tokens){const s=await command(token,{type:'sync'},1),role=s.private.role,others=s.order.filter((id:string)=>id!==s.me);const action=role==='seer'?{mode:'center',centers:[0,1]}:role==='robber'?{targets:[others[0]]}:role==='troublemaker'?{targets:others.slice(0,2)}:role==='drunk'?{centers:[0]}:role==='wolf'&&s.private.loneWolf?{skip:true}:{};await command(token,{type:'night',action},1)}
+ await expect(page.getByRole('heading',{name:'Night report',exact:true})).toBeVisible();await capture('dawn');for(const token of tokens)await command(token,{type:'ready'},1);await expect(page.getByRole('heading',{name:'Dawn breaks',exact:true})).toBeVisible();await capture('day');await command(host,{type:'callVote'},1);await expect(page.getByRole('heading',{name:'Who is a werewolf?',exact:true})).toBeVisible();await capture('vote');for(const token of tokens){const s=await command(token,{type:'sync'},1);await command(token,{type:'vote',target:s.order.find((id:string)=>id!==s.me)},1)}await expect(page.getByTestId('result-banner')).toBeVisible();await capture('result');fs.writeFileSync('docs/UX_AUDIT.before.json',JSON.stringify(audit,null,2));
+});

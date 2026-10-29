@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import zlib from 'node:zlib';
+const root=process.env.BUILD_DIR||'.next';
+const manifest=JSON.parse(fs.readFileSync(path.join(root,'app-build-manifest.json'),'utf8'));
+const entry=[...new Set(Object.entries(manifest.pages).filter(([key])=>['/page','/layout'].includes(key)).flatMap(([,files])=>files).filter(f=>f.endsWith('.js')))];
+const size=files=>files.reduce((sum,file)=>sum+zlib.gzipSync(fs.readFileSync(path.join(root,file))).length,0);
+const lobby=size(entry);if(lobby>150*1024)throw new Error(`Lobby gzip budget exceeded: ${lobby} > ${150*1024}`);
+const chunks=fs.readdirSync(path.join(root,'static/chunks'),{recursive:true}).filter(f=>typeof f==='string'&&f.endsWith('.js')).map(f=>'static/chunks/'+f);
+const ordinary=chunks.filter(file=>!/(?:WebGLRenderer|class WebGLRenderer|isWebGLRenderer|REVISION=|REVISION =)/.test(fs.readFileSync(path.join(root,file),'utf8')));
+const full=size(ordinary);if(full>1024*1024)throw new Error(`Non-Three.js gzip budget exceeded: ${full}`);
+console.log(`Bundle budgets: lobby ${(lobby/1024).toFixed(1)} / 150 KiB gzip; non-Three.js game ${(full/1024).toFixed(1)} / 1024 KiB.`);
+fs.writeFileSync(path.join(root,'bundle-budget.json'),JSON.stringify({lobbyGzip:lobby,gameGzip:full,lobbyLimit:153600,gameLimit:1048576},null,2));

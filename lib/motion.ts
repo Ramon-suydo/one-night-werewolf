@@ -1,0 +1,15 @@
+import type { PositionPacket } from './social';
+export type MotionBus = {
+  local: { x: number; z: number }; stick: { x: number; z: number };
+  remote: Map<string, PositionPacket>; focus: string | null; interaction: string | null;
+  overview: boolean; skipCamera: boolean; quality: 'high' | 'low';
+  exploring: boolean; batterySaver: boolean; calm: boolean;
+  introStarted: number | null;
+};
+export function seat(index: number, count: number): [number, number, number] {
+  const a = index / Math.max(3, count) * Math.PI * 2;
+  return [Math.sin(a) * 5.5, 0, Math.cos(a) * 5.5];
+}
+export function makeMotion(): MotionBus {
+  return { local: { x: 0, z: 5.5 }, stick: { x: 0, z: 0 }, remote: new Map(), focus: null, interaction: null, overview: false, skipCamera: false, quality: 'high', exploring: false, batterySaver: false, calm: false, introStarted: null };
+}

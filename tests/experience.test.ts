@@ -1,0 +1,14 @@
+import {describe,it,expect} from 'vitest';
+import {ROLES,validateAction,validateDeck,publicState,personalState,type Room,type Role} from '../lib/engine';
+import {botAction,DAY_PRESETS,PLAY_DEFAULTS,recommendedDeck,updateSession} from '../lib/experience';
+import {sceneProjection} from '../lib/social';
+import {packPosition,unpackPosition,movementChanged} from '../lib/wire';
+function fixture(role:Role='seer'):Room{return {code:'TEST',host:'0',phase:'night',round:1,players:[0,1,2].map(n=>({id:String(n),name:'P'+n,tokenHash:'secret'+n,seen:0,joined:n,left:false})),game:{order:['0','1','2'],original:[role,'villager','villager'],cards:[role,'villager','villager','wolf','wolf','tanner'],actions:{},reports:{},ready:[],votes:{},skipped:[]},dayEnd:null,daySeconds:300,deck:null,updated:0,revision:0,receipts:[]}}
+describe('guided play helpers',()=>{
+ for(let count=3;count<=10;count++)for(const kind of ['beginner','classic','chaos'] as const)it(`validates ${kind} for ${count} players`,()=>{expect(()=>validateDeck(recommendedDeck(count,kind),count)).not.toThrow()});
+ it('presets keep the requested day lengths',()=>expect(DAY_PRESETS).toEqual({Quick:240,Standard:300,Chill:480}));
+ it('bots always make legal original-role choices',()=>{for(const role of ROLES)for(let i=0;i<30;i++){const r=fixture(role);expect(()=>validateAction(r,'0',botAction(r,'0'))).not.toThrow()}});
+ it('public claims are explicit and private notepad content is never projected',()=>{const r=fixture();r.phase='day';r.preferences={...PLAY_DEFAULTS,claims:true};r.game!.claims=[{player:'0',role:'wolf',at:1}];const own=personalState(r,'0'),other=personalState(r,'1');expect(other.claims).toEqual(own.claims);expect(other.private!.role).toBe('villager');expect(JSON.stringify(sceneProjection(own))).not.toContain('secret');expect(Object.keys(publicState(r))).not.toContain('notes');expect(JSON.stringify(other)).not.toContain('notepadContent')});
+ it('score updates are idempotent and use final-card winners',()=>{const r=fixture();r.phase='result';r.game!.result={cards:r.game!.cards,votes:[2,1,0],banished:['0'],hunted:[],winners:['the village'],winningPlayers:['1','2'],banner:'Victory for the village!'};updateSession(r);updateSession(r);expect(r.session!.scores['1'].wins).toBe(1);expect(r.session!.scores['0'].banished).toBe(1)});
+ it('short movement packets quantize positions, reject extras, and suppress stationary/too-fast ticks',()=>{const p=packPosition({type:'position',player:'0',round:1,x:1.23456,z:5.6789,at:1000});expect(p.x).toBe(1.23);expect(p.z).toBe(5.68);expect(unpackPosition(p)?.player).toBe('0');expect(unpackPosition({...p,role:'wolf'})).toBeNull();expect(movementChanged(p,{...p,t:2000},1000,2000)).toBe(false);expect(movementChanged(p,{...p,x:2},1000,1050)).toBe(false);expect(movementChanged(p,{...p,x:2},1000,1100)).toBe(true)});
+});
