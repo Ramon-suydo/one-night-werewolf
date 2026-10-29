@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./design-tokens.css";
 @import "./cinematic.css";
+@import "./hud.css";
 @font-face{font-family:Silkscreen;font-style:normal;font-display:swap;font-weight:400;src:url('/fonts/silkscreen-400.woff2') format('woff2')}
 @font-face{font-family:Silkscreen;font-style:normal;font-display:swap;font-weight:700;src:url('/fonts/silkscreen-700.woff2') format('woff2')}
 @font-face{font-family:VT323;font-style:normal;font-display:swap;font-weight:400;src:url('/fonts/vt323-400.woff2') format('woff2')}

@@ -1,4 +1,4 @@
-import { ROLES } from '@/lib/engine';
+import { ROLES } from '@/engine';
 import { RULES,teamMarker } from '@/lib/rules';
 import { Tablet } from '../tablet';
 import Link from 'next/link';

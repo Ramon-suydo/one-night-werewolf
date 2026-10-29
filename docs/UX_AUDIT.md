@@ -40,3 +40,7 @@ Your night recap · only your own actions; Session scoreboard & highlights; Play
 ## Findings
 
 The centered panel blocks the fire. Role explanations repeat the guidance line. Room settings, role roster, accessibility settings, character controls and management remain below active gameplay. Day and vote have several competing calls to action. The phase headings repeat narrator captions. A right drawer and one context action replace this structure in the HUD stage. World-space avatar/card interaction replaces lists.
+
+## After the HUD replacement
+
+The four-player production browser flow verifies four closed-HUD controls: role chip, menu, reactions and one contextual action. Drawer content is explicit, scrollable and keyboard trapped; no gameplay accordion remains. Night actions, votes and center targets use world-space selections. Portrait framing preserves the horizontal view so every seat remains reachable. Before-state totals were 10–15 controls in game phases. The automatic second round requires no host phase clicks.

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import { positionPacket, validPosition, type SceneState } from '@/lib/social';
+import { positionPacket, validPosition } from '@/lib/social';
+import type {SceneState} from '@/lib/scene';
 import type { MotionBus } from '@/lib/motion';
 import { realtimeClient } from '@/lib/realtime-client';
 import { packPosition, unpackPosition, movementChanged, MOVEMENT_CAP, type WirePosition } from '@/lib/wire';
@@ -39,8 +40,8 @@ export function useMotion(view: SceneState | null, bus: MotionBus) {
         if (pending || stopped) return; pending = true;
         try {
           const p = next(); if (!p) return;
-          const response = await fetch('/api/presence', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-player-token': localStorage.getItem('werewolf-token') || '' }, body: JSON.stringify({ code: view.code, x: p.x, z: p.z, round: p.r }), signal: AbortSignal.timeout(3000) });
-          if (response.ok) { const data = await response.json(); if (!stopped) data.positions.forEach(receive); }
+          const response = await fetch('/api/session/position', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-player-token': localStorage.getItem('werewolf-token') || '' }, body: JSON.stringify({ code: view.code, x: p.x, z: p.z, round: p.r }), signal: AbortSignal.timeout(3000) });
+          if (response.ok) { const data = await response.json(); if (!stopped) data.positions?.forEach(receive); }
         } catch { /* Cosmetic positions recover on the next tick; game state uses its own retry. */ }
         finally { pending = false; }
       }, 100);

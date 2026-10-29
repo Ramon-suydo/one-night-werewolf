@@ -1,5 +1,6 @@
-import type { Role } from './engine';
+import type { Role } from '@/engine';
 export const RULES: Record<Role,{name:string;team:'Village'|'Werewolf'|'Tanner';power:string;example:string;glyph:string;accent:string;path:string}> = {
+ doppel:{name:'Doppelgänger',team:'Village',power:'Copy another player. Become that role privately.',example:'Copy a Robber, then immediately rob another player. The copied marker travels with your tablet.',glyph:'D',accent:'#c4c8d9',path:'M3 4L14 7L14 28L4 23ZM29 4L18 7L18 28L28 23ZM7 12L11 13M21 13L25 12M16 2L15 12L18 18L15 30'},
  wolf:{name:'Werewolf',team:'Werewolf',power:'Know your pack. Alone? Peek at one center tablet.',example:'If your final card is Werewolf, keep every wolf safe from banishment.',glyph:'ᛉ',accent:'#aab0f0',path:'M21 5Q8 6 8 17Q8 27 21 26Q15 22 15 16Q15 10 21 5M3 10L5 24M28 8L26 24'},
  minion:{name:'Minion',team:'Werewolf',power:'See the original wolves. They cannot see you.',example:'You may draw suspicion to yourself so the wolves survive.',glyph:'ᚦ',accent:'#ff8a3c',path:'M4 28L7 12L16 3L25 12L28 28ZM11 16Q16 11 21 16Q16 23 11 16ZM16 15L16 18'},
  mason:{name:'Mason',team:'Village',power:'Recognize the other original Mason.',example:'If no other player is a Mason, the partner card is in the center.',glyph:'ᛗ',accent:'#8a8fa8',path:'M3 8L14 5L19 15L12 25L3 21ZM16 8L27 5L29 20L21 27L12 22L18 15'},

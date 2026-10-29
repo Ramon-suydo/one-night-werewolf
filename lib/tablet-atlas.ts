@@ -1,9 +1,9 @@
-import { ROLES, type Role } from './engine';
+import { ROLES, type Role } from '@/engine';
 import { RULES } from './rules';
 import { NIGHT } from './theme.mjs';
-export const CELL_W=72, CELL_H=120, ATLAS_COLS=4, ATLAS_ROWS=3;
+export const CELL_W=72, CELL_H=120, ATLAS_COLS=4, ATLAS_ROWS=4;
 let atlas: HTMLCanvasElement | null = null;
-export function tabletIndex(role: Role | 'back') { return role === 'back' ? 11 : ROLES.indexOf(role); }
+export function tabletIndex(role: Role | 'back') { return role === 'back' ? ROLES.length : ROLES.indexOf(role); }
 export function drawEmblem(ctx: CanvasRenderingContext2D, role: Role, x=0, y=0, size=32) {
   ctx.save(); ctx.translate(x,y); ctx.scale(size/32,size/32); ctx.strokeStyle=RULES[role].accent; ctx.fillStyle=RULES[role].accent; ctx.lineWidth=2; ctx.lineJoin='miter'; ctx.stroke(new Path2D(RULES[role].path)); ctx.restore();
 }

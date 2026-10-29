@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as T from 'three';
 import { particleAt, phaseColor, VFX_BUDGET } from '@/lib/vfx';
-import type { SceneState } from '@/lib/social';
+import type { SceneState } from '@/lib/scene';
 // All effects derive from public phase/reveal only. One pool, five draw calls.
 export function WorldVFX({view,low,reduced}:{view:SceneState|null;low:boolean;reduced:boolean}) {
  const count=low?VFX_BUDGET.lowParticles:VFX_BUDGET.highParticles;

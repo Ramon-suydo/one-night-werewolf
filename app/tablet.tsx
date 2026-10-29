@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { Role } from '@/lib/engine';
+import type { Role } from '@/engine';
 import { RULES, teamMarker } from '@/lib/rules';
 import { CELL_H,CELL_W,getTabletAtlas,tabletIndex } from '@/lib/tablet-atlas';
 function Face({role}:{role:Role|'back'}) {

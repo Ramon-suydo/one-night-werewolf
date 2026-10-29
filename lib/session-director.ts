@@ -27,6 +27,7 @@ export function advanceSession(room:SessionRoom,now:number,seed=1){
    const at=due?room.deadline!:now;g.order.forEach(id=>{if(!room.revealed.includes(id))room.revealed.push(id)});transition(room,'night',at);room.nightStart=at;room.deadline=nightQueue(at,room.settings.speed).at(-1)!.ends;continue;
   }
   if(room.phase==='night'){
+   const current=nightPosition(room.nightStart!,now,room.settings.speed);room.stepCursor=current?`${current.index}:${current.awake}`:'done';
    const end=nightQueue(room.nightStart!,room.settings.speed).at(-1)!.ends;if(now<end)return;room.roundSecrets=resolveNight(g);transition(room,'dawn',end);continue;
   }
   if(room.phase==='dawn'&&(due||live.length>0&&live.every(p=>room.dawnReady.includes(p.id)))){transition(room,'day',due?room.deadline!:now);continue;}

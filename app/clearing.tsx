@@ -3,10 +3,11 @@
 import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as T from 'three';
-import { CLOAKS, type SceneState } from '@/lib/social';
+import {CLOAKS} from '@/lib/social';
+import type {SceneState} from '@/lib/scene';
 import { seat, type MotionBus } from '@/lib/motion';
-import type { Role } from '@/lib/engine';
-import { getTabletAtlas,tabletIndex } from '@/lib/tablet-atlas';
+import type { Role } from '@/engine';
+import { getTabletAtlas,tabletIndex,ATLAS_ROWS,ATLAS_COLS } from '@/lib/tablet-atlas';
 import { NIGHT,MOODS } from '@/lib/theme.mjs';
 import { RULES } from '@/lib/rules';
 import { introCamera } from '@/lib/vfx';
@@ -21,6 +22,10 @@ type Props = { view: SceneState | null; bus: MotionBus; onFallback: () => void; 
 const random = (i: number) => { const n = Math.sin(i * 127.1 + 311.7) * 43758.5453; return n - Math.floor(n); };
 function Material({ color, glow = false }: { color: string; glow?: boolean }) {
   return glow ? <meshBasicMaterial color={color} /> : <meshLambertMaterial color={color} flatShading />;
+}
+function RenderLoop({fps,reduced}:{fps:number;reduced:boolean}){
+ const invalidate=useThree(s=>s.invalidate);
+ useEffect(()=>{let stopped=false,frame=0,last=0,activeUntil=0;const active=()=>{activeUntil=performance.now()+1000;invalidate()};const loop=(time:number)=>{if(stopped)return;const cap=reduced&&time>activeUntil?2:fps;if(!document.hidden&&time-last>=1000/cap){invalidate();last=time}frame=requestAnimationFrame(loop)};frame=requestAnimationFrame(loop);window.addEventListener('keydown',active);window.addEventListener('pointerdown',active);return()=>{stopped=true;cancelAnimationFrame(frame);window.removeEventListener('keydown',active);window.removeEventListener('pointerdown',active)}},[fps,reduced,invalidate]);return null;
 }
 function Box({ p, size, color, glow = false, rotation }: { p: [number, number, number]; size: [number, number, number]; color: string; glow?: boolean; rotation?: [number, number, number] }) {
   return <mesh position={p} rotation={rotation} castShadow={!glow} receiveShadow><boxGeometry args={size} /><Material color={color} glow={glow} /></mesh>;
@@ -169,9 +174,9 @@ function Character({ player, index, count, view, bus, reduced, elapsed }: { play
 let sharedAtlas:T.CanvasTexture|undefined;
 function cardTexture(role: Role | null) {
   sharedAtlas ||= new T.CanvasTexture(getTabletAtlas());const texture=sharedAtlas.clone(),index=tabletIndex(role||'back');
-  texture.repeat.set(1/4,1/3);texture.offset.set(index%4/4,1-(Math.floor(index/4)+1)/3);texture.magFilter=T.NearestFilter;texture.minFilter=T.NearestFilter;texture.colorSpace=T.SRGBColorSpace;return texture;
+  texture.repeat.set(1/ATLAS_COLS,1/ATLAS_ROWS);texture.offset.set(index%ATLAS_COLS/ATLAS_COLS,1-(Math.floor(index/ATLAS_COLS)+1)/ATLAS_ROWS);texture.magFilter=T.NearestFilter;texture.minFilter=T.NearestFilter;texture.colorSpace=T.SRGBColorSpace;return texture;
 }
-function SceneCard({ index, view, elapsed, dealElapsed, reduced }: { index: number; view: SceneState; elapsed: React.RefObject<number>; dealElapsed: React.RefObject<number>; reduced: boolean }) {
+function SceneCard({ index, view, elapsed, dealElapsed, reduced, bus }: { index: number; view: SceneState; elapsed: React.RefObject<number>; dealElapsed: React.RefObject<number>; reduced: boolean;bus:MotionBus }) {
   const group = useRef<T.Group>(null); const front = useRef<T.Mesh>(null); const back = useRef<T.Mesh>(null);
   const role = view.phase === 'result' ? view.reveal?.cards[index] || null : null;
   const textures = useMemo(() => ({ back: cardTexture(null), front: cardTexture(role) }), [role]);
@@ -188,10 +193,12 @@ function SceneCard({ index, view, elapsed, dealElapsed, reduced }: { index: numb
     group.current.rotateY(Math.PI * (1 - step));
     if (front.current) front.current.visible = step >= .5; if (back.current) back.current.visible = step < .5;
   });
-  return <group ref={group}><mesh ref={front}><planeGeometry args={[.8, 1.333]} /><meshBasicMaterial map={textures.front} alphaTest={.5} side={T.DoubleSide} /></mesh><mesh ref={back}><planeGeometry args={[.8, 1.333]} /><meshBasicMaterial map={textures.back} alphaTest={.5} side={T.DoubleSide} /></mesh></group>;
+  return <group ref={group} onClick={e=>{e.stopPropagation();bus.onSelect?.(index<view.order.length?view.order[index]:'center-'+(index-view.order.length))}}><mesh ref={front}><planeGeometry args={[.8, 1.333]} /><meshBasicMaterial map={textures.front} alphaTest={.5} side={T.DoubleSide} /></mesh><mesh ref={back}><planeGeometry args={[.8, 1.333]} /><meshBasicMaterial map={textures.back} alphaTest={.5} side={T.DoubleSide} /></mesh></group>;
 }
 function World({ view, bus, low, setLow, reduced }: Props & { low: boolean; setLow: () => void; reduced: boolean }) {
   const { scene, camera, gl } = useThree(); const day = useRef(0); const ambient = useRef<T.AmbientLight>(null); const moonlight = useRef<T.DirectionalLight>(null); const orb = useRef<T.Mesh>(null); const skyBands = useRef<T.Group>(null);
+  const size=useThree(s=>s.size);
+  useEffect(()=>{if(camera instanceof T.PerspectiveCamera){camera.fov=Math.max(50,T.MathUtils.radToDeg(2*Math.atan(Math.tan(T.MathUtils.degToRad(25))/Math.min(1,size.width/size.height))));camera.updateProjectionMatrix()}},[camera,size.width,size.height]);
   const stars = useRef<T.Points>(null); const ring = useRef<T.Mesh>(null); const trail = useRef<T.Mesh>(null); const projectile = useRef<T.Mesh>(null);
   const start = useRef(0); const elapsed = useRef(0); const keys = useRef<Record<string, boolean>>({}); const privateTarget = useRef<{ id: string; until: number } | null>(null); const performanceStats = useRef({ frames: 0, time: 0 });
   const dealStarted = useRef(0); const dealElapsed = useRef(0);
@@ -244,7 +251,10 @@ function World({ view, bus, low, setLow, reduced }: Props & { low: boolean; setL
       if (phase === 'result' && view?.reveal) { const index = Math.floor((elapsed.current - .7) / .45); if (index >= 0 && index < positions.length) { target = positions[index].clone().add(new T.Vector3(0, 2, 0)); desired.copy(target).add(new T.Vector3(3, 4, 7)); if (view.reveal.banished.includes(players[index].id)) desired.x += Math.sin(elapsed.current * 70) * .09; } }
     }
     if(bus.introStarted!==null){const shot=introCamera((performance.now()-bus.introStarted)/1000);desired.set(shot.x,shot.y,shot.z);target.set(0,shot.targetY,0);}
+    if(phase==='night'&&positions[my]){const at=positions[my];desired.set(at.x, bus.awake?2.8:1.3,at.z);target.set(0,bus.awake?1:.1,-1);}
     camera.position.lerp(desired, reduced || bus.skipCamera ? 1 : 1 - Math.exp(-dt * 3)); camera.lookAt(target);
+    if(view&&view.phase!=='lobby')for(let i=0;i<3;i++){const tag=document.getElementById('center-tag-'+i);if(tag){const p=new T.Vector3((i-1)*1.2,2,-3.4).project(camera);tag.style.transform=`translate(-50%,-50%) translate(${(p.x*.5+.5)*innerWidth}px,${(-p.y*.5+.5)*innerHeight}px)`;tag.style.visibility=p.z<1?'visible':'hidden'}}
+    const skip=document.getElementById('skip-stone');if(skip){const p=new T.Vector3(2,1,0).project(camera);skip.style.transform=`translate(-50%,-50%) translate(${(p.x*.5+.5)*innerWidth}px,${(-p.y*.5+.5)*innerHeight}px)`;}
     if (trail.current) {
       const choice = privateTarget.current; const active = choice && choice.until > performance.now() / 1000; trail.current.visible = !!active;
       if (active && choice) { const end = choice.id.startsWith('center-') ? new T.Vector3((Number(choice.id.slice(7)) - 1) * 1.2, 1, -3.4) : positions[players.findIndex(p => p.id === choice.id)]; if (end) { const from = positions[my] || new T.Vector3(); const center = from.clone().add(end).multiplyScalar(.5); trail.current.position.copy(center).add(new T.Vector3(0, 1, 0)); trail.current.scale.set(.06, from.distanceTo(end), .06); trail.current.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), end.clone().sub(from).normalize()); } }
@@ -260,7 +270,7 @@ function World({ view, bus, low, setLow, reduced }: Props & { low: boolean; setL
     <points ref={stars}><bufferGeometry><bufferAttribute attach="attributes-position" args={[starPositions, 3]} /></bufferGeometry><pointsMaterial color="#ffffff" size={2} sizeAttenuation={false} transparent fog={false} /></points><mesh ref={orb}><sphereGeometry args={[4, 8, 6]} /><meshBasicMaterial color="#e8e4ff" fog={false} /></mesh>
     <mesh position={[0, .15, -3.4]}><cylinderGeometry args={[1.8, 2, .3, 6]} /><Material color="#55506a" /></mesh>
     {view && players.map((p, i) => <Character key={p.id} player={p} index={i} count={players.length} view={view} bus={bus} reduced={reduced} elapsed={elapsed} />)}
-    {view && view.phase !== 'lobby' && Array.from({ length: view.order.length + 3 }, (_, i) => <SceneCard key={`${view.round}-${i}`} index={i} view={view} elapsed={elapsed} dealElapsed={dealElapsed} reduced={reduced} />)}
+    {view && view.phase !== 'lobby' && Array.from({ length: view.order.length + 3 }, (_, i) => <SceneCard key={`${view.round}-${i}`} index={i} view={view} elapsed={elapsed} dealElapsed={dealElapsed} reduced={reduced} bus={bus} />)}
     <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[.8, 1.1, 10]} /><meshBasicMaterial color="#ffd35a" side={T.DoubleSide} /></mesh>
     <mesh ref={trail} visible={false}><cylinderGeometry args={[1, 1, 1, 6]} /><meshBasicMaterial color="#ffd35a" transparent opacity={.65} depthWrite={false} /></mesh><mesh ref={projectile} visible={false}><octahedronGeometry args={[.16, 0]} /><meshBasicMaterial color="#ffd35a" /></mesh>
   </>;
@@ -273,7 +283,7 @@ export default function Clearing(props: Props) {
   const onFallback=props.onFallback;
   useEffect(()=>{if(!gpu.available)onFallback();const change=(e:Event)=>setTier((e as CustomEvent<QualityTier>).detail);window.addEventListener('werewolf-quality',change);return()=>window.removeEventListener('werewolf-quality',change)},[gpu.available,onFallback]);
   const tags = props.view?.players || []; const view = props.view;
-  return <div className="clearing" aria-label="3D campfire clearing" data-testid="clearing-3d"><Boundary fallback={props.onFallback}><Canvas frameloop={reduced&&!props.bus.exploring?'demand':'always'} camera={{ fov: 50, position: [0, 12, 17], near: .1, far: 300 }} dpr={scale} shadows={!low} gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }} onCreated={({ gl }) => { gl.domElement.addEventListener('webglcontextlost', () => fallback.current(), { once: true }); }}><World {...props} low={low} setLow={() => { props.bus.quality = 'low'; setTier(q=>TIERS[Math.max(0,TIERS.indexOf(q)-1)]); }} reduced={reduced} /></Canvas></Boundary>
-    <div className="world-tags">{tags.map(p => { const emote = view?.emotes.find(e => e.player === p.id); const ping = view?.emotes.some(e => e.target === p.id); const message = view?.chat.filter(m => m.player === p.id && !props.muted.includes(p.id)).at(-1); return <div className="world-tag" id={'tag-' + p.id} key={p.id}>{ping && <span className="point-ping">▼</span>}{emote && <span className="emote-bubble">{({ wave: '✋', point: '➜', shrug: '¯\_(ツ)_/¯', laugh: 'ha!', gasp: '!', 'thumbs up': '👍' })[emote.kind]}</span>}{message && Date.now() - message.at < 5500 && <span className="speech-bubble">{message.text}</span>}<button onClick={() => { props.bus.focus = p.id; }}>{p.name}{view?.claims.filter(c=>c.player===p.id).slice(-1).map(c=><small className="claim-badge" key={c.at}>claims {RULES[c.role].name}</small>)}</button></div>; })}</div><div className="vignette" />
+  return <div className="clearing" aria-label="3D campfire clearing" data-testid="clearing-3d"><Boundary fallback={props.onFallback}><Canvas frameloop='demand' camera={{ fov: 50, position: [0, 12, 17], near: .1, far: 300 }} dpr={scale} shadows={!low} gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }} onCreated={({ gl }) => { gl.domElement.addEventListener('webglcontextlost', () => fallback.current(), { once: true }); }}><RenderLoop fps={props.bus.batterySaver?30:quality.fps} reduced={reduced}/><World {...props} low={low} setLow={() => { props.bus.quality = 'low'; setTier(q=>TIERS[Math.max(0,TIERS.indexOf(q)-1)]); }} reduced={reduced} /></Canvas></Boundary>
+    <div className="world-tags">{view?.phase==='vote'&&<button className="center-tag skip-stone" id="skip-stone" onClick={()=>props.bus.onSelect?.('skip')}>Skip stone</button>}{view&&['night','dealing','result'].includes(view.phase)&&[0,1,2].map(i=><button className="center-tag" id={'center-tag-'+i} key={i} onClick={()=>props.bus.onSelect?.('center-'+i)}>{['Left','Middle','Right'][i]}</button>)}{tags.map(p => { const emote = view?.emotes.find(e => e.player === p.id); const ping = view?.emotes.some(e => e.target === p.id); const message = view?.chat.filter(m => m.player === p.id && !props.muted.includes(p.id)).at(-1); return <div className="world-tag" id={'tag-' + p.id} key={p.id}>{ping && <span className="point-ping">▼</span>}{emote && <span className="emote-bubble">{({slam:'✹',accuse:'➜',facepalm:'…',sweat:'💧','who me':'me?', wave: '✋', point: '➜', shrug: '¯\_(ツ)_/¯', laugh: 'ha!', gasp: '!', 'thumbs up': '👍' })[emote.kind]}</span>}{message && Date.now() - message.at < 5500 && <span className="speech-bubble">{message.text}</span>}<button disabled={(view?.phase==='night'||view?.phase==='vote')&&p.id===view?.me} onClick={() => { props.bus.focus = p.id;props.bus.onSelect?.(p.id); }}>{p.name}{p.id===view?.me?' · you':''}{view?.claims.filter(c=>c.player===p.id).slice(-1).map(c=><small className="claim-badge" key={c.at}>claims {RULES[c.role].name}</small>)}</button></div>; })}</div><div className="vignette" />
   </div>;
 }
