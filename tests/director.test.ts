@@ -1,0 +1,31 @@
+import {describe,it,expect} from 'vitest';
+import {advanceSession,startSessionRound} from '../lib/session-director';
+import {publicSession,privateSession} from '../lib/session-projection';
+import {ROLES,DEFAULT_SETTINGS,nightQueue} from '../engine';
+import type {SessionRoom} from '../lib/session-types';
+import {POST} from '../app/api/session/route';
+function room():SessionRoom{return{code:'FIRE',host:'0',phase:'lobby',round:0,revision:0,updated:0,phaseStarted:0,deadline:null,nightStart:null,settings:{...DEFAULT_SETTINGS,preset:'classic',deck:null,allowed:[...ROLES],chat:'off',filter:true,discord:'',rotateHost:false},players:['0','1','2'].map(id=>({id,name:id,tokenHash:id,joined:Number(id),seen:0,left:false,spectator:false,ready:false,revealed:false,appearance:{cloak:0,hat:0,face:0}})),rolesInPlay:[],revealed:[],dawnReady:[],dayReady:[],locked:[],nightLocks:{},undo:{},claims:[],chat:[],emotes:[],scores:{},history:[],receipts:[]}}
+function live(r:SessionRoom,t:number){r.players.forEach(p=>p.seen=t);advanceSession(r,t,3)}
+function atDay(){const r=room();startSessionRound(r,0,3);r.revealed=['0','1','2'];live(r,1000);live(r,156000);r.dawnReady=['0','1','2'];live(r,156001);expect(r.phase).toBe('day');return r}
+describe('automatic director',()=>{
+ it('starts ten seconds after everyone readies; unready cancels',()=>{const r=room();r.players.forEach(p=>p.ready=true);live(r,0);expect(r.deadline).toBe(10000);r.players[1].ready=false;live(r,2000);expect(r.deadline).toBeNull();r.players[1].ready=true;live(r,3000);live(r,13000);expect(r.phase).toBe('dealing')});
+ it('waits for all reveals and ignores an early duplicate advance',()=>{const r=room();startSessionRound(r,0,3);r.revealed=['0','1'];live(r,200);const before=JSON.stringify(r);advanceSession(r,200);expect(JSON.stringify(r)).toBe(before);expect(r.phase).toBe('dealing');r.revealed.push('2');live(r,300);expect(r.phase).toBe('night')});
+ it('auto-reveals at the 25-second cap',()=>{const r=room();startSessionRound(r,0,1);live(r,25000);expect(r.phase).toBe('night');expect(r.revealed).toHaveLength(3)});
+ it('keeps night windows when every action is missing',()=>{const r=room();startSessionRound(r,0,1);r.revealed=['0','1','2'];live(r,1);const end=nightQueue(1).at(-1)!.ends;live(r,end-1);expect(r.phase).toBe('night');live(r,end);expect(r.phase).toBe('dawn');expect(r.roundSecrets!.events.filter(e=>e.kind==='step')).toHaveLength(9)});
+ it('caps dawn at ten seconds',()=>{const r=room();startSessionRound(r,0,1);r.revealed=['0','1','2'];live(r,1000);live(r,166000);expect(r.phase).toBe('day')});
+ it('does not advance with majority readiness',()=>{const r=atDay();r.dayReady=['0','1'];live(r,156002);expect(r.phase).toBe('day');expect(publicSession(r,156002).readyCount).toBe(2)});
+ it('advances only on unanimous connected readiness',()=>{const r=atDay();r.dayReady=['0','1','2'];live(r,156002);expect(r.phase).toBe('vote');expect(r.deadline).toBe(186002)});
+ it('automatically calls the vote on the day deadline',()=>{const r=atDay();live(r,r.deadline!);expect(r.phase).toBe('vote')});
+ it('keeps a vote editable until its own seat locks',()=>{const r=atDay();r.dayReady=['0','1','2'];live(r,156002);r.roundSecrets!.votes={'0':'1','1':'2','2':'1'};live(r,156003);expect(r.phase).toBe('vote');r.locked=['0','1','2'];live(r,156004);expect(r.phase).toBe('result')});
+ it('times out unlocked votes as Skip',()=>{const r=atDay();r.dayReady=['0','1','2'];live(r,156002);r.roundSecrets!.votes['0']='1';live(r,186002);expect(r.phase).toBe('result');expect(r.roundSecrets!.votes).toEqual({'0':'1','1':null,'2':null})});
+ it('does not wait on a seat disconnected over 15 seconds',()=>{const r=atDay();r.dayReady=['0','1','2'];live(r,156002);r.locked=['0','1'];r.roundSecrets!.votes={'0':'1','1':'0'};r.players[0].seen=r.players[1].seen=172003;advanceSession(r,172003);expect(r.phase).toBe('result');expect(r.roundSecrets!.votes['2']).toBeNull()});
+ it('reconnect restores the same role and private report',()=>{const r=atDay(),before=privateSession(r,'1',156002);r.players[1].seen=1;r.players[1].seen=156003;expect(privateSession(r,'1',156003).role).toEqual(before.role);expect(privateSession(r,'1',156003).report).toEqual(before.report)});
+ it('automatically deals a second round after the result countdown',()=>{const r=atDay();r.dayReady=['0','1','2'];live(r,156002);r.locked=['0','1','2'];live(r,156003);const round=r.round;live(r,176003);expect(r.phase).toBe('dealing');expect(r.round).toBe(round+1);expect(r.history).toHaveLength(1)});
+ it('transfers an absent host to the longest connected seat',()=>{const r=room();r.players[0].seen=0;r.players[1].seen=r.players[2].seen=20000;advanceSession(r,20000);expect(r.host).toBe('1')});
+ it('private peek results stay withheld until Undo expires',()=>{const r=room();startSessionRound(r,0,1);const g=r.roundSecrets!;g.original[0]={role:'seer'};g.actions['0']={role:'seer',mode:'center',centers:[0,1]};r.revealed=['0'];r.phase='night';r.nightStart=0;const start=nightQueue(0)[4].opens;r.undo['0']={until:start+5000,step:4};expect(privateSession(r,'0',start+1).report.some(p=>p.cards)).toBe(false);expect(privateSession(r,'0',start+5001).report.some(p=>p.cards)).toBe(true)});
+});
+describe('host is a player after Start',()=>{
+ const tokens=['e','f','9'].map(c=>c.repeat(64));
+ async function post(token:string,command:object,code?:string,round=0){return POST(new Request('http://localhost:3000/api/session',{method:'POST',headers:{'x-player-token':token,host:'localhost:3000','Content-Type':'application/json'},body:JSON.stringify({command,code,round,requestId:crypto.randomUUID()})}))}
+ it('returns 403 for host Start, settings, kick and transfer in game',async()=>{const r=await post(tokens[0],{type:'create',name:'Host'}),state=await r.json();expect(r.status).toBe(200);const code=state.public.code;for(let i=1;i<3;i++)expect((await post(tokens[i],{type:'join',name:'Friend '+i},code)).status).toBe(200);expect((await post(tokens[0],{type:'start'},code)).status).toBe(200);const current=await(await post(tokens[0],{type:'sync'},code)).json();for(const cmd of [{type:'start'},{type:'settings',settings:current.public.settings},{type:'kick',target:current.public.players[1].id},{type:'transfer',target:current.public.players[1].id}])expect((await post(tokens[0],cmd,code,1)).status).toBe(403)});
+});

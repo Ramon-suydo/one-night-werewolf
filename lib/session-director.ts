@@ -6,7 +6,7 @@ export function transition(room:SessionRoom,to:Phase,now:number){if(DIRECTOR[roo
 export function startSessionRound(room:SessionRoom,now:number,seed:number){
  const order=room.players.filter(p=>!p.left&&!p.spectator).map(p=>p.id);if(order.length<3||order.length>10)throw new Error('Gather 3 to 10 players.');
  const deck=room.settings.deck||buildDeck(order.length,seeded(seed),{doppel:room.settings.doppel,preset:room.settings.preset,allowed:room.settings.allowed});
- room.roundSecrets=deal(order,deck,seeded(seed^0x531ce),room.settings);room.rolesInPlay=[...deck].sort();room.round++;room.phase='dealing';room.phaseStarted=now;room.deadline=now+25000;room.nightStart=null;room.revealed=[];room.dawnReady=[];room.dayReady=[];room.locked=[];room.nightLocks={};room.undo={};room.claims=[];room.chat=[];room.emotes=[];room.players.forEach(p=>p.ready=false);
+ room.roundSecrets=deal(order,deck,seeded(seed^0x531ce),room.settings);room.rolesInPlay=[...deck].sort();room.round++;room.phase='dealing';room.phaseStarted=now;room.deadline=now+25000;room.nightStart=null;room.revealed=[];room.dawnReady=[];room.dayReady=[];room.locked=[];room.nightLocks={};room.copyTarget={};room.undo={};room.claims=[];room.chat=[];room.emotes=[];room.players.forEach(p=>p.ready=false);
 }
 function recordResult(room:SessionRoom){
  const g=room.roundSecrets!;if(room.history.some(h=>h.round===room.round))return;const result=evaluate(g);
