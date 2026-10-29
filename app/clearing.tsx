@@ -8,6 +8,7 @@ import type {SceneState} from '@/lib/scene';
 import { seat, type MotionBus } from '@/lib/motion';
 import type {Card} from '@/engine';
 import {Card3D} from '@/components/Card3D';
+import {TitleWolf} from './title-wolf';
 import { NIGHT,MOODS } from '@/lib/theme.mjs';
 import { RULES } from '@/lib/rules';
 import { introCamera } from '@/lib/vfx';
@@ -20,7 +21,7 @@ import {detectGPU,QUALITY,TIERS,type QualityTier} from '@/lib/quality';
 // altar, 5-sided faceted mountains/pines, 50-degree camera and low-res renderer.
 const COLORS = { night: NIGHT.ink, dawn: '#e8a07a', ground: '#1f2a2e', clearing: '#3a2a22', snow: NIGHT.ice, pine: '#0e3a34', fire: NIGHT.fire, gold: NIGHT.gold };
 
-type Props = { view: SceneState | null; bus: MotionBus; onFallback: () => void; muted: string[];faces?:Record<string,Card> };
+type Props = { view: SceneState | null; bus: MotionBus; onFallback: () => void;onReady?:()=>void; muted: string[];faces?:Record<string,Card> };
 const random = (i: number) => { const n = Math.sin(i * 127.1 + 311.7) * 43758.5453; return n - Math.floor(n); };
 function Material({ color, glow = false }: { color: string; glow?: boolean }) {
   return glow ? <meshBasicMaterial color={color} /> : <meshLambertMaterial color={color} flatShading />;
@@ -207,13 +208,13 @@ function World({ view, bus, faces={}, low, setLow, reduced }: Props & { low: boo
     gl.domElement.dataset.avatarX = String(bus.local.x); gl.domElement.dataset.avatarZ = String(bus.local.z);
     const stats = performanceStats.current; stats.frames++; stats.time += actualDelta;
     if (stats.time > 2) { gl.domElement.dataset.drawCalls = String(gl.info.render.calls); gl.domElement.dataset.fps = String(Math.round(stats.frames / stats.time)); if (stats.frames / stats.time < 30 || gl.info.render.calls > 220) setLow(); stats.frames = 0; stats.time = 0; }
-    const phase = view?.phase || 'lobby'; const d = ['day', 'vote', 'result'].includes(phase) ? 1 : 0;
+    const phase=view?.phase||'lobby',introAge=bus.introStarted===null?null:(performance.now()-bus.introStarted)/1000;const d=introAge!==null?Math.max(0,1-introAge/10):['day','vote','result'].includes(phase)?1:0;
     if(scene.fog instanceof T.Fog)scene.fog.far=MOODS[phase].fog;
     day.current = reduced ? d : T.MathUtils.damp(day.current, d, 1, dt);
     const color = new T.Color().lerpColors(nightColor, dawnColor, day.current); scene.background = color; (scene.fog as T.Fog)?.color.copy(color);
     if (ambient.current) ambient.current.intensity = .6 + .55 * day.current;
     if (moonlight.current) moonlight.current.intensity = .5 + .7 * day.current;
-    const progress = phase === 'night' ? .12 + Math.min(.33, elapsed.current * .003) : .5;
+    const progress=introAge!==null?.05+Math.min(.45,introAge/40):phase==='night'?.12+Math.min(.33,elapsed.current*.003):.5;
     if (orb.current) { orb.current.position.set(-80 * Math.cos(progress * Math.PI), 12 + 62 * Math.sin(progress * Math.PI), -85); (orb.current.material as T.MeshBasicMaterial).color.lerpColors(new T.Color('#e8e4ff'), new T.Color('#ffd35a'), day.current); moonlight.current?.position.copy(orb.current.position); }
     if (stars.current) (stars.current.material as T.PointsMaterial).opacity = 1 - day.current;
     skyBands.current?.children.forEach((mesh, i) => { const m = mesh as T.Mesh; (m.material as T.MeshBasicMaterial).color.lerpColors(new T.Color('#120a2a').lerp(new T.Color('#2a1a52'), i / 11), new T.Color('#3b3f8a').lerp(new T.Color('#ffb27a'), i / 11), day.current); });
@@ -252,7 +253,7 @@ function World({ view, bus, faces={}, low, setLow, reduced }: Props & { low: boo
   return <><ambientLight ref={ambient} color="#8878c8" intensity={.4} /><directionalLight ref={moonlight} color="#b8b0ff" intensity={.6} position={[-30, 50, -40]} />
     <group ref={skyBands}>{Array.from({ length: 12 }, (_, i) => <mesh key={i} position={[0, i * 9 - 8, -130]}><planeGeometry args={[340, 9]} /><meshBasicMaterial color="#140d2e" fog={false} /></mesh>)}</group>
     <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow><circleGeometry args={[36, 12]} /><Material color={COLORS.ground} /></mesh><mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, .02, 0]} receiveShadow><circleGeometry args={[9, 12]} /><Material color={COLORS.clearing} /></mesh>
-    <Mountains /><VoteStones view={view} bus={bus} reduced={reduced}/><WorldVFX view={view} low={low||bus.batterySaver} reduced={reduced}/>
+    <Mountains />{!view&&<TitleWolf reduced={reduced}/>}<VoteStones view={view} bus={bus} reduced={reduced}/><WorldVFX view={view} low={low||bus.batterySaver} reduced={reduced}/>
     <Vegetation low={low} reduced={reduced} /><Landmarks day={day} reduced={reduced} /><Fire low={low} reduced={reduced} /><Particles low={low} reduced={reduced} day={day} winning={winning} />
     <points ref={stars}><bufferGeometry><bufferAttribute attach="attributes-position" args={[starPositions, 3]} /></bufferGeometry><pointsMaterial color="#ffffff" size={2} sizeAttenuation={false} transparent fog={false} /></points><mesh ref={orb}><sphereGeometry args={[4, 8, 6]} /><meshBasicMaterial color="#e8e4ff" fog={false} /></mesh>
     <mesh position={[0, .15, -3.4]}><cylinderGeometry args={[1.8, 2, .3, 6]} /><Material color="#55506a" /></mesh>
@@ -270,7 +271,7 @@ export default function Clearing(props: Props) {
   const onFallback=props.onFallback;
   useEffect(()=>{if(!gpu.available)onFallback();const change=(e:Event)=>setTier((e as CustomEvent<QualityTier>).detail);window.addEventListener('werewolf-quality',change);return()=>window.removeEventListener('werewolf-quality',change)},[gpu.available,onFallback]);
   const tags = props.view?.players || []; const view = props.view;
-  return <div className="clearing" aria-label="3D campfire clearing" data-testid="clearing-3d"><Boundary fallback={props.onFallback}><Canvas frameloop='demand' camera={{ fov: 50, position: [0, 12, 17], near: .1, far: 300 }} dpr={scale} shadows={!low} gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }} onCreated={({ gl }) => { gl.domElement.addEventListener('webglcontextlost', () => fallback.current(), { once: true }); }}><RenderLoop fps={props.bus.batterySaver?30:quality.fps} reduced={reduced}/><World {...props} low={low} setLow={() => { props.bus.quality = 'low'; setTier(q=>TIERS[Math.max(0,TIERS.indexOf(q)-1)]); }} reduced={reduced} /></Canvas></Boundary>
+  return <div className="clearing" aria-label="3D campfire clearing" data-testid="clearing-3d"><Boundary fallback={props.onFallback}><Canvas frameloop='demand' camera={{ fov: 50, position: [0, 12, 17], near: .1, far: 300 }} dpr={scale} shadows={!low} gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }} onCreated={({ gl }) => { gl.domElement.addEventListener('webglcontextlost', () => fallback.current(), { once: true });props.onReady?.(); }}><RenderLoop fps={props.bus.batterySaver?30:quality.fps} reduced={reduced}/><World {...props} low={low} setLow={() => { props.bus.quality = 'low'; setTier(q=>TIERS[Math.max(0,TIERS.indexOf(q)-1)]); }} reduced={reduced} /></Canvas></Boundary>
     <div className="world-tags">{view?.phase==='vote'&&view.allowSkip&&<button className="center-tag skip-stone" id="skip-stone" onClick={()=>props.bus.onSelect?.('skip')}>Skip stone</button>}{view&&['night','dealing','result'].includes(view.phase)&&[0,1,2].map(i=><button className="center-tag" id={'center-tag-'+i} key={i} onClick={()=>props.bus.onSelect?.('center-'+i)}>{['Left','Middle','Right'][i]}</button>)}{tags.map(p => { const emote = view?.emotes.find(e => e.player === p.id); const ping = view?.emotes.some(e => e.target === p.id); const message = view?.chat.filter(m => m.player === p.id && !props.muted.includes(p.id)).at(-1); return <div className="world-tag" id={'tag-' + p.id} key={p.id}>{ping && <span className="point-ping">▼</span>}{emote && <span className="emote-bubble">{({slam:'✹',accuse:'➜',facepalm:'…',sweat:'💧','who me':'me?', wave: '✋', point: '➜', shrug: '¯\_(ツ)_/¯', laugh: 'ha!', gasp: '!', 'thumbs up': '👍' })[emote.kind]}</span>}{message && Date.now() - message.at < 5500 && <span className="speech-bubble">{message.text}</span>}<button disabled={(view?.phase==='night'||view?.phase==='vote')&&p.id===view?.me} onClick={() => { props.bus.focus = p.id;props.bus.onSelect?.(p.id); }}>{p.name}{p.id===view?.me?' · you':''}{view?.claims.filter(c=>c.player===p.id).slice(-1).map(c=><small className="claim-badge" key={c.at}>claims {RULES[c.role].name}</small>)}</button>{props.bus.selected.includes(p.id)&&view?.phase==='day'&&<div className="character-actions"><button onClick={()=>props.bus.onReact?.('point',p.id)}>Point</button><button onClick={()=>props.bus.onMenu?.('Notes')}>Claim</button><button onClick={()=>props.bus.onMenu?.('Notes')}>Note</button><button onClick={()=>props.bus.onReactions?.()}>Emote</button></div>}</div>; })}</div><div className="vignette" />
   </div>;
 }
