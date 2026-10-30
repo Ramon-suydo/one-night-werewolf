@@ -302,6 +302,18 @@
         "rotateHost": {
           "type": "boolean"
         },
+        "playerCount": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 3,
+              "maximum": 10
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "allowDuplicateColors": {
           "type": "boolean"
         }

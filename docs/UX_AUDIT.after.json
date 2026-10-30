@@ -58,7 +58,7 @@
     {
       "width": 360,
       "controls": [
-        "ᛒ Villager",
+        "ᛟ Troublemaker",
         "☰",
         "✦",
         "Rest by the fire"
@@ -67,7 +67,7 @@
     {
       "width": 768,
       "controls": [
-        "ᛒ Villager",
+        "ᛟ Troublemaker",
         "☰",
         "✦",
         "Rest by the fire"
@@ -76,7 +76,7 @@
     {
       "width": 1280,
       "controls": [
-        "ᛒ Villager",
+        "ᛟ Troublemaker",
         "☰",
         "✦",
         "Rest by the fire"
@@ -87,7 +87,7 @@
     {
       "width": 360,
       "controls": [
-        "ᛒ Villager",
+        "ᛟ Troublemaker",
         "☰",
         "✦",
         "I’m ready"
@@ -96,7 +96,7 @@
     {
       "width": 768,
       "controls": [
-        "ᛒ Villager",
+        "ᛟ Troublemaker",
         "☰",
         "✦",
         "I’m ready"
@@ -105,7 +105,7 @@
     {
       "width": 1280,
       "controls": [
-        "ᛒ Villager",
+        "ᛟ Troublemaker",
         "☰",
         "✦",
         "I’m ready"
@@ -116,7 +116,7 @@
     {
       "width": 360,
       "controls": [
-        "ᛒ Dealt: Villager",
+        "ᛟ Dealt: Troublemaker",
         "☰",
         "...",
         "Ready to vote"
@@ -125,7 +125,7 @@
     {
       "width": 768,
       "controls": [
-        "ᛒ Dealt: Villager",
+        "ᛟ Dealt: Troublemaker",
         "☰",
         "...",
         "Ready to vote"
@@ -134,7 +134,7 @@
     {
       "width": 1280,
       "controls": [
-        "ᛒ Dealt: Villager",
+        "ᛟ Dealt: Troublemaker",
         "☰",
         "...",
         "Ready to vote"
@@ -145,7 +145,7 @@
     {
       "width": 360,
       "controls": [
-        "ᛒ Dealt: Villager",
+        "ᛟ Dealt: Troublemaker",
         "☰",
         "✦",
         "Choose a suspectHold to confirm"
@@ -154,7 +154,7 @@
     {
       "width": 768,
       "controls": [
-        "ᛒ Dealt: Villager",
+        "ᛟ Dealt: Troublemaker",
         "☰",
         "✦",
         "Choose a suspectHold to confirm"
@@ -163,7 +163,7 @@
     {
       "width": 1280,
       "controls": [
-        "ᛒ Dealt: Villager",
+        "ᛟ Dealt: Troublemaker",
         "☰",
         "✦",
         "Choose a suspectHold to confirm"
@@ -174,7 +174,7 @@
     {
       "width": 360,
       "controls": [
-        "ᛒ Villager",
+        "ᛟ Troublemaker",
         "☰",
         "✦",
         "Watch replay"
@@ -183,7 +183,7 @@
     {
       "width": 768,
       "controls": [
-        "ᛒ Villager",
+        "ᛟ Troublemaker",
         "☰",
         "✦",
         "Watch replay"
@@ -192,7 +192,7 @@
     {
       "width": 1280,
       "controls": [
-        "ᛒ Villager",
+        "ᛟ Troublemaker",
         "☰",
         "✦",
         "Watch replay"

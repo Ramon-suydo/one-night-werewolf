@@ -112,6 +112,19 @@
       "type": "boolean",
       "description": "rotateHost: public; host may edit only in lobby."
     },
+    "playerCount": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 10
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "playerCount: public; host may edit only in lobby."
+    },
     "allowDuplicateColors": {
       "type": "boolean",
       "description": "allowDuplicateColors: public; host may edit only in lobby."

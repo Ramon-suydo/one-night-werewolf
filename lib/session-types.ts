@@ -1,7 +1,7 @@
 import type {Card,GameEvent,Report,Result,Role,RoleAction,Round,Settings} from '@/engine';
 import type {Phase} from '@/rules/director';
 import type {Appearance} from '@/assets/appearance';
-export type RoomSettings=Settings&{preset:'beginner'|'classic'|'chaos';deck:Role[]|null;allowed:Role[];chat:'off'|'day'|'always';filter:boolean;discord:string;rotateHost:boolean;allowDuplicateColors?:boolean};
+export type RoomSettings=Settings&{preset:'beginner'|'classic'|'chaos';deck:Role[]|null;allowed:Role[];chat:'off'|'day'|'always';filter:boolean;discord:string;rotateHost:boolean;playerCount?:number|null;allowDuplicateColors?:boolean};
 export type Expression='neutral'|'suspicious'|'smug'|'shocked'|'sad'|'angry';
 export type PlayerPublic={expression?:Expression;id:string;name:string;appearance:Appearance;appearanceVersion?:number;connected:boolean;spectator:boolean;left:boolean;ready:boolean;revealed:boolean};
 export type PlayerSecret=Omit<PlayerPublic,'connected'>&{waiting?:boolean;tokenHash:string;lastExpression?:number;lastAppearance?:number;joined:number;seen:number};

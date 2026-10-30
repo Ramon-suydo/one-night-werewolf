@@ -4,7 +4,7 @@ import {connected} from './session-projection';
 import type {SessionRoom} from './session-types';
 export function transition(room:SessionRoom,to:Phase,now:number){if(DIRECTOR[room.phase].next!==to&&!(to==='lobby'&&room.phase==='result'))throw new Error('Illegal phase transition.');room.phase=to;room.phaseStarted=now;room.deadline=DIRECTOR[to].seconds===null?null:now+(to==='day'?room.settings.daySeconds:DIRECTOR[to].seconds!)*1000;}
 export function startSessionRound(room:SessionRoom,now:number,seed:number){
- const order=room.players.filter(p=>!p.left&&!p.spectator).map(p=>p.id);if(order.length<3||order.length>10)throw new Error('Gather 3 to 10 players.');
+ const order=room.players.filter(p=>!p.left&&!p.spectator).map(p=>p.id);if(order.length<3||order.length>10||room.settings.playerCount!=null&&order.length!==room.settings.playerCount)throw new Error('Gather 3 to 10 players.');
  const deck=room.settings.deck||buildDeck(order.length,seeded(seed),{doppel:room.settings.doppel,preset:room.settings.preset,allowed:room.settings.allowed});
  room.roundSecrets=deal(order,deck,seeded(seed^0x531ce),room.settings);room.rolesInPlay=[...deck].sort();room.round++;room.phase='dealing';room.dealReadyAt=null;room.phaseStarted=now;room.deadline=now+25000;room.nightStart=null;room.revealed=[];room.dawnReady=[];room.dayReady=[];room.locked=[];room.nightLocks={};room.copyTarget={};room.undo={};room.claims=[];room.chat=[];room.emotes=[];room.players.forEach(p=>p.ready=false);
 }
@@ -20,7 +20,7 @@ export function advanceSession(room:SessionRoom,now:number,seed=1){
  for(let guard=0;guard<16;guard++){
   const g=room.roundSecrets,live=room.players.filter(p=>connected(p,now)&&!p.spectator&&(!g||g.order.includes(p.id))),due=room.deadline!==null&&now>=room.deadline;
   if(room.phase==='lobby'){
-   const seats=room.players.filter(p=>!p.left&&!p.spectator),ready=seats.length>=3&&seats.length<=10&&seats.every(p=>connected(p,now)&&p.ready);
+   const seats=room.players.filter(p=>!p.left&&!p.spectator),ready=seats.length>=3&&seats.length<=10&&(!room.settings.playerCount||seats.length===room.settings.playerCount)&&seats.every(p=>connected(p,now)&&p.ready);
    if(!ready){room.deadline=null;return}if(room.deadline===null){room.deadline=now+10000;return}if(due){startSessionRound(room,room.deadline,seed);continue}return;
   }
   if(!g)return;
@@ -42,8 +42,8 @@ export function advanceSession(room:SessionRoom,now:number,seed=1){
   }
   if(room.phase==='resolution'){recordResult(room);transition(room,'result',room.phaseStarted);continue;}
   if(room.phase==='result'&&due){
-   for(const p of room.players.filter(p=>p.waiting&&!p.left).sort((a,b)=>a.joined-b.joined)){if(room.players.filter(p=>!p.left&&!p.spectator).length>=10)break;p.spectator=false;p.waiting=false;}
-   const seats=room.players.filter(p=>!p.left&&!p.spectator);if(seats.length<3||!seats.some(p=>connected(p,now))){transition(room,'lobby',room.deadline!);room.deadline=null;return}
+   for(const p of room.players.filter(p=>p.waiting&&!p.left).sort((a,b)=>a.joined-b.joined)){if(room.players.filter(p=>!p.left&&!p.spectator).length>=(room.settings.playerCount??10))break;p.spectator=false;p.waiting=false;}
+   const seats=room.players.filter(p=>!p.left&&!p.spectator);if(seats.length<3||room.settings.playerCount!=null&&seats.length!==room.settings.playerCount||!seats.some(p=>connected(p,now))){transition(room,'lobby',room.deadline!);room.deadline=null;return}
    if(room.settings.preset==='beginner'&&seats.length>9){transition(room,'lobby',room.deadline!);room.deadline=null;return}
    if(room.settings.deck&&room.settings.deck.length!==seats.length+3)room.settings.deck=null;
    if(room.settings.rotateHost){const current=seats.findIndex(p=>p.id===room.host);room.host=seats[(current+1)%seats.length].id;}
