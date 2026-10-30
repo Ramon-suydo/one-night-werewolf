@@ -27,3 +27,5 @@
 .world-game[data-phase=lobby] .world-tags{display:none}
 
 .entry-hud{max-height:calc(100dvh - 48px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto}.entry-hud .entry-resume{display:block;width:100%;margin-top:14px}.entry-intro{display:block;margin:12px auto 0;min-height:44px;padding:8px 12px;border:0;background:transparent;color:#ceb8ed;font:20px VT323;text-decoration:underline;cursor:pointer}.entry-intro:focus-visible{outline:3px solid #ffd35a;outline-offset:3px}
+
+.lobby-hud{left:max(16px,env(safe-area-inset-left));top:calc(90px + env(safe-area-inset-top));width:min(280px,calc(100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right)));max-height:calc(100dvh - 130px - env(safe-area-inset-top) - env(safe-area-inset-bottom));overflow:auto;overscroll-behavior:contain}@media(max-width:700px){.lobby-hud{top:calc(150px + env(safe-area-inset-top));width:calc(100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right));max-height:calc(100dvh - 310px - env(safe-area-inset-top) - env(safe-area-inset-bottom))}}@media(prefers-reduced-motion:reduce){.lobby-hud{animation:none}}:root[data-calm=true] .lobby-hud{animation:none}
