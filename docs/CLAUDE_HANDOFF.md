@@ -42,6 +42,8 @@ Last full `npm run check`: lint/typecheck/build/load simulation passed; **318 un
 
 Live Supabase deployment, real-phone GPU performance and current Lighthouse scores were not verified. Existing Lighthouse reports predate these changes. Load counts are simulation, not cloud telemetry. Check real night targeting/hold/undo and all visible buttons visually; API-driven smoke actions alone cannot prove animation quality. Detailed evidence: `docs/BUGFIX_APPEARANCE.md`.
 
+**Home entry:** bare `/` opens Create/Join with an explicit Resume room button; a matching `?room=CODE` refresh reconnects the same saved seat. Do not restore unconditional localStorage auto-join. The welcome screen has Play introduction; the cinematic remains optional. Regression: `tests/e2e/entry.spec.ts`.
+
 ## Efficient workflow
 
 1. Inspect the relevant files and reproduce one concrete issue. Use narrow searches; skip `node_modules`, `.next`, `.local-data`, reports and `docs/reference` archives.
