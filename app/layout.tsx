@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import './tabletop.css';
+import './settings.css';
 export const metadata: Metadata = {
   title: 'One Night Werewolf',
   description: 'One fire. One night. Who can you trust? A private multiplayer game for 3 to 10 friends.',

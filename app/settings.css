@@ -1,0 +1,33 @@
+.game-drawer>header,.game-drawer>nav{flex-shrink:0}
+.game-drawer>nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;padding:0 14px 14px}
+.game-drawer>nav button{min-width:0;padding:8px 3px;font-size:17px;line-height:1.05;overflow-wrap:normal}
+.settings-panel{display:grid;gap:18px;padding:2px 0 8px}
+.settings-section{padding:18px 16px 12px;border:1px solid #4a385e;background:linear-gradient(145deg,#21172e,#171020);box-shadow:0 3px 0 #09060f}
+.drawer-content .settings-section h2{margin:0 0 14px;font-size:15px;letter-spacing:1px;color:#ffd35a}
+.settings-hint{margin:-4px 0 14px;color:#b6a3c9;font:19px/1.2 VT323}
+.drawer-content .setting-toggle{display:flex;align-items:center;gap:12px;min-height:46px;margin:4px 0;padding:6px 0;cursor:pointer;font:21px/1.2 VT323}
+.setting-toggle span{flex:1;min-width:0}
+.game-drawer .settings-panel input[type=checkbox]{appearance:none;display:inline-grid;place-content:center;flex-shrink:0;width:24px;height:24px;margin:0 10px 0 0;padding:0;border:2px solid #9985b0;border-radius:0;box-shadow:0 2px 0 #090610;background:#100b1b;cursor:pointer;vertical-align:middle}
+.game-drawer .settings-panel input[type=checkbox]::before{content:'';width:11px;height:7px;border-left:3px solid #1a1226;border-bottom:3px solid #1a1226;transform:translateY(-1px) rotate(-45deg) scale(0)}
+.game-drawer .settings-panel input[type=checkbox]:checked{background:#ffd35a;border-color:#ffd35a}
+.game-drawer .settings-panel input[type=checkbox]:checked::before{transform:translateY(-1px) rotate(-45deg) scale(1)}
+.volume-settings{display:grid;gap:10px;padding-top:14px;margin-top:10px;border-top:1px solid #44314f}
+.drawer-content .volume-setting{display:block;margin:0}
+.volume-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font:21px VT323;color:#f4efe0}
+.volume-heading output{min-width:48px;text-align:right;font:19px VT323;font-variant-numeric:tabular-nums;color:#ffd35a}
+.game-drawer .drawer-content .volume-setting>input[type=range]{appearance:none;-webkit-appearance:none;display:block;width:100%;height:44px;min-height:44px;margin:0;padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;cursor:pointer;accent-color:#ffd35a;touch-action:pan-y}
+.volume-setting input[type=range]::-webkit-slider-runnable-track{height:8px;border:1px solid #7c6497;background:linear-gradient(to right,#ffd35a 0%,#ffd35a var(--volume),#392a4b var(--volume),#392a4b 100%);box-shadow:0 2px 0 #090610}
+.volume-setting input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:24px;margin-top:-9px;background:#ffe49b;border:3px solid #ffd35a;border-radius:0;box-shadow:3px 3px 0 #0b0715}
+.volume-setting input[type=range]::-moz-range-track{height:6px;border:1px solid #7c6497;background:#392a4b;box-shadow:0 2px 0 #090610}
+.volume-setting input[type=range]::-moz-range-progress{height:6px;background:#ffd35a}
+.volume-setting input[type=range]::-moz-range-thumb{width:14px;height:18px;background:#ffe49b;border:3px solid #ffd35a;border-radius:0;box-shadow:3px 3px 0 #0b0715}
+.drawer-content .setting-field{margin:0 0 6px;font:21px VT323}
+.settings-panel select{color-scheme:dark;border-color:#79628d;background-color:#100b1b;min-height:46px;padding:9px 12px}
+.game-drawer input:focus-visible,.game-drawer select:focus-visible{outline:3px solid #ffd35a;outline-offset:4px}
+:root[data-large=true] .settings-panel label,:root[data-large=true] .volume-heading{font-size:25px}
+:root[data-contrast=true] .settings-section{background:#0c0912;border-color:#ab94c1}
+:root[data-contrast=true] .settings-hint{color:#e5d9f1}
+@media(max-width:420px){.game-drawer>header{padding:12px 14px}.game-drawer>header h2{font-size:17px}.game-drawer>nav button{font-size:15px}.game-drawer .drawer-content{padding-left:14px;padding-right:14px}.settings-section{padding:16px 14px 10px}.settings-panel{gap:14px}}
+@media(forced-colors:active){.game-drawer .settings-panel input[type=checkbox],.game-drawer .drawer-content .volume-setting>input[type=range]{appearance:auto}.game-drawer .settings-panel input[type=checkbox]::before{display:none}.volume-setting input[type=range]::-webkit-slider-runnable-track{background:Canvas;border-color:ButtonText}.volume-setting input[type=range]::-webkit-slider-thumb{background:Highlight;border-color:ButtonText}.settings-section{border-color:ButtonText}}
+
+.game-drawer .settings-panel .setting-toggle input[type=checkbox]{margin:0}

@@ -60,3 +60,9 @@ Opening `/` always shows the welcome menu, even when localStorage remembers a ro
 The entry regression also exposed an older `:focus-within` rule that repositioned the panel on mouse-down, so mouse-up could miss the intended button. The panel now keeps its position and uses viewport-limited scrolling for short screens. The entry test exercises the real introduction and resume buttons, checks the same anonymous seat after resume/reload, and creates another room from the home menu.
 
 Entry-fix verification: lint, TypeScript, all 341 unit/server tests, production build and all six selected browser regressions (entry plus tabletop) passed. Build budgets: lobby 125.1 / 150 KiB gzip; non-Three.js game 388.2 / 1024 KiB. The initial failing intro click was fixed by removing the layout shift; no forced clicks or relaxed assertions were added.
+
+## Settings panel cleanup
+
+Settings uses grouped Sound, Display, Accessibility and host Lobby setup sections. Volume controls have a gold progress track, square handles, a 44 px interaction area, visible percentages and spoken percentage values. Scoped range styles remove inherited text-input padding, borders and inset shadows. Checkbox rows and a five-column tab bar remain usable at 360 px. Keyboard volume changes, mute, quality, saved preferences after reload, menu tabs and Escape were checked in a browser at mobile and desktop widths; no horizontal overflow or runtime errors were observed.
+
+Settings verification: final lint, typecheck, 341 unit/server tests, production build and entry browser regression passed. Gzip budgets remain within limits (125.2 / 150 KiB lobby; 388.6 / 1024 KiB non-Three.js game). Screenshots for the manual settings check are under ignored `test-results/settings-360.png` and `test-results/settings-1280.png`.
