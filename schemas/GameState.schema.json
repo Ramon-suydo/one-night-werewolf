@@ -60,6 +60,20 @@
       ],
       "description": "stepDeadline: public; result/original/ballots populated only in Results."
     },
+    "narration_step": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "narration_step: public; result/original/ballots populated only in Results."
+    },
+    "step_started_at": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "step_started_at: public; result/original/ballots populated only in Results."
+    },
     "caption": {
       "type": "string",
       "description": "caption: public; result/original/ballots populated only in Results."
@@ -79,22 +93,56 @@
           "appearance": {
             "type": "object",
             "properties": {
-              "cloak": {
-                "type": "number"
+              "cloakId": {
+                "type": "string",
+                "enum": [
+                  "gold",
+                  "blue",
+                  "green",
+                  "purple",
+                  "red",
+                  "brown",
+                  "silver",
+                  "ivory",
+                  "teal",
+                  "coral"
+                ]
               },
-              "hat": {
-                "type": "number"
+              "hatId": {
+                "type": "string",
+                "enum": [
+                  "pointed",
+                  "cap",
+                  "tall",
+                  "brim",
+                  "crown",
+                  "none"
+                ]
               },
-              "face": {
-                "type": "number"
+              "faceId": {
+                "type": "string",
+                "enum": [
+                  "plain",
+                  "beard",
+                  "smile",
+                  "wide",
+                  "scar",
+                  "sleepy"
+                ]
               }
             },
             "required": [
-              "cloak",
-              "hat",
-              "face"
+              "cloakId",
+              "hatId",
+              "faceId"
             ],
             "additionalProperties": false
+          },
+          "appearanceVersion": {
+            "type": "number"
+          },
+          "expression": {
+            "type": "string"
           },
           "connected": {
             "type": "boolean"
@@ -246,6 +294,9 @@
           "maxLength": 250
         },
         "rotateHost": {
+          "type": "boolean"
+        },
+        "allowDuplicateColors": {
           "type": "boolean"
         }
       },
@@ -664,6 +715,8 @@
     "nextWakeAt",
     "step",
     "stepDeadline",
+    "narration_step",
+    "step_started_at",
     "caption",
     "players",
     "rolesInPlay",

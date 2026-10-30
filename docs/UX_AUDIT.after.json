@@ -1,0 +1,202 @@
+{
+  "lobby": [
+    {
+      "width": 360,
+      "controls": [
+        "⚙",
+        "?",
+        "Start the night"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "⚙",
+        "?",
+        "Start the night"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "⚙",
+        "?",
+        "Start the night"
+      ]
+    }
+  ],
+  "dealing": [
+    {
+      "width": 360,
+      "controls": [
+        "◌ Your seat",
+        "☰",
+        "✦",
+        "Reveal my tabletHold to confirm"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "◌ Your seat",
+        "☰",
+        "✦",
+        "Reveal my tabletHold to confirm"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "◌ Your seat",
+        "☰",
+        "✦",
+        "Reveal my tabletHold to confirm"
+      ]
+    }
+  ],
+  "night": [
+    {
+      "width": 360,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "Rest by the fire"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "Rest by the fire"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "Rest by the fire"
+      ]
+    }
+  ],
+  "dawn": [
+    {
+      "width": 360,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "I’m ready"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "I’m ready"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "I’m ready"
+      ]
+    }
+  ],
+  "day": [
+    {
+      "width": 360,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "Ready to vote"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "Ready to vote"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "Ready to vote"
+      ]
+    }
+  ],
+  "vote": [
+    {
+      "width": 360,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "Choose a suspectHold to confirm"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "Choose a suspectHold to confirm"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "Choose a suspectHold to confirm"
+      ]
+    }
+  ],
+  "result": [
+    {
+      "width": 360,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "Watch replay"
+      ]
+    },
+    {
+      "width": 768,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "Watch replay"
+      ]
+    },
+    {
+      "width": 1280,
+      "controls": [
+        "ᛉ Werewolf",
+        "☰",
+        "✦",
+        "Watch replay"
+      ]
+    }
+  ]
+}

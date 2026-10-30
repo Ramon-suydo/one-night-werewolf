@@ -1,10 +1,10 @@
 import type {Card,GameEvent,Report,Result,Role,RoleAction,Round,Settings} from '@/engine';
 import type {Phase} from '@/rules/director';
-import type {Appearance} from './social';
-export type RoomSettings=Settings&{preset:'beginner'|'classic'|'chaos';deck:Role[]|null;allowed:Role[];chat:'off'|'day'|'always';filter:boolean;discord:string;rotateHost:boolean};
+import type {Appearance} from '@/assets/appearance';
+export type RoomSettings=Settings&{preset:'beginner'|'classic'|'chaos';deck:Role[]|null;allowed:Role[];chat:'off'|'day'|'always';filter:boolean;discord:string;rotateHost:boolean;allowDuplicateColors?:boolean};
 export type Expression='neutral'|'suspicious'|'smug'|'shocked'|'sad'|'angry';
-export type PlayerPublic={expression?:Expression;id:string;name:string;appearance:Appearance;connected:boolean;spectator:boolean;left:boolean;ready:boolean;revealed:boolean};
-export type PlayerSecret=Omit<PlayerPublic,'connected'>&{waiting?:boolean;tokenHash:string;lastExpression?:number;joined:number;seen:number};
+export type PlayerPublic={expression?:Expression;id:string;name:string;appearance:Appearance;appearanceVersion?:number;connected:boolean;spectator:boolean;left:boolean;ready:boolean;revealed:boolean};
+export type PlayerSecret=Omit<PlayerPublic,'connected'>&{waiting?:boolean;tokenHash:string;lastExpression?:number;lastAppearance?:number;joined:number;seen:number};
 export type Claim={id:string;player:string;role:Role;at:number};
 export type PublicChat={id:string;player:string;text:string;at:number};
 export const REACTIONS=['wave','point','slam','shrug','gasp','laugh','who me','thumbs up','sweat','accuse','facepalm'] as const;

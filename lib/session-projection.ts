@@ -1,3 +1,4 @@
+import {normalizeAppearance} from '@/assets/appearance';
 import {copiedRole,resolveNight} from '@/engine';
 import {nightPosition} from '@/engine/nightQueue';
 import {DISCONNECT_MS} from '@/rules/director';
@@ -10,7 +11,7 @@ export function publicSession(room:SessionRoom,now=Date.now()):GameState{
  const captions:Record<string,string>={lobby:'Gather at the fire.',dealing:'Hold your tablet to reveal.',dawn:'Read your report. Mark ready.',day:'Discuss. Mark ready when decided.',vote:'Accuse a player. Hold to lock.',resolution:'The stones reveal their choices.',result:'Discover what changed overnight.'};
  const stepDeadline=night?(night.awake?night.closes:night.ends):null;
  return{code:room.code,host:room.host,phase:room.phase,round:room.round,phaseStarted:room.phaseStarted,deadline:room.deadline,nextWakeAt:room.phase==='night'?stepDeadline:room.deadline,step:night?.index??null,narration_step:night?.index??null,step_started_at:night?.opens??null,stepDeadline,caption:night?.awake?night.caption:room.phase==='night'?'Eyes closed. Stay silent.':captions[room.phase],
- players:seats.map(p=>({id:p.id,name:p.name,expression:p.expression||'neutral',appearance:p.appearance,connected:connected(p,now),left:p.left,spectator:p.spectator,ready:room.phase==='lobby'&&p.ready,revealed:room.phase==='dealing'&&room.revealed.includes(p.id)})),
+ players:seats.map(p=>({id:p.id,name:p.name,expression:p.expression||'neutral',appearance:normalizeAppearance(p.appearance),appearanceVersion:p.appearanceVersion||0,connected:connected(p,now),left:p.left,spectator:p.spectator,ready:room.phase==='lobby'&&p.ready,revealed:room.phase==='dealing'&&room.revealed.includes(p.id)})),
  rolesInPlay:room.rolesInPlay,settings:room.settings,readyCount:room.phase==='day'?live.filter(p=>room.dayReady.includes(p.id)).length:room.phase==='dawn'?live.filter(p=>room.dawnReady.includes(p.id)).length:room.phase==='lobby'?seats.filter(p=>p.ready&&!p.spectator&&connected(p,now)).length:0,connectedCount:room.phase==='lobby'?seats.filter(p=>!p.spectator&&connected(p,now)).length:live.length,lockedCount:room.phase==='vote'?live.filter(p=>room.locked.includes(p.id)).length:0,
  claims:['day','vote','result'].includes(room.phase)?room.claims:[],chat:room.settings.chat!=='off'&&(room.phase==='day'||room.settings.chat==='always'&&['lobby','result'].includes(room.phase))?room.chat:[],emotes:room.phase==='night'?[]:room.emotes.filter(e=>now-e.at<3000),scores:room.scores,result,order:g?.order||[],original:result?g!.original:null,ballots:result?g!.votes:null};
 }

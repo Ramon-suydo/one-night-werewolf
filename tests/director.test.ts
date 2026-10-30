@@ -4,7 +4,7 @@ import {publicSession,privateSession} from '../lib/session-projection';
 import {ROLES,DEFAULT_SETTINGS,nightQueue} from '../engine';
 import type {SessionRoom} from '../lib/session-types';
 import {POST} from '../app/api/session/route';
-function room():SessionRoom{return{code:'FIRE',host:'0',phase:'lobby',round:0,revision:0,updated:0,phaseStarted:0,deadline:null,nightStart:null,settings:{...DEFAULT_SETTINGS,preset:'classic',deck:null,allowed:[...ROLES],chat:'off',filter:true,discord:'',rotateHost:false},players:['0','1','2'].map(id=>({id,name:id,tokenHash:id,joined:Number(id),seen:0,left:false,spectator:false,ready:false,revealed:false,appearance:{cloak:0,hat:0,face:0}})),rolesInPlay:[],revealed:[],dawnReady:[],dayReady:[],locked:[],nightLocks:{},undo:{},claims:[],chat:[],emotes:[],scores:{},history:[],receipts:[]}}
+function room():SessionRoom{return{code:'FIRE',host:'0',phase:'lobby',round:0,revision:0,updated:0,phaseStarted:0,deadline:null,nightStart:null,settings:{...DEFAULT_SETTINGS,preset:'classic',deck:null,allowed:[...ROLES],chat:'off',filter:true,discord:'',rotateHost:false},players:['0','1','2'].map(id=>({id,name:id,tokenHash:id,joined:Number(id),seen:0,left:false,spectator:false,ready:false,revealed:false,appearance:{cloakId:'gold',hatId:'pointed',faceId:'plain'}})),rolesInPlay:[],revealed:[],dawnReady:[],dayReady:[],locked:[],nightLocks:{},undo:{},claims:[],chat:[],emotes:[],scores:{},history:[],receipts:[]}}
 function live(r:SessionRoom,t:number){r.players.forEach(p=>p.seen=t);advanceSession(r,t,3)}
 function atDay(){const r=room();startSessionRound(r,0,3);r.revealed=['0','1','2'];live(r,1000);live(r,156000);r.dawnReady=['0','1','2'];live(r,156001);expect(r.phase).toBe('day');return r}
 describe('automatic director',()=>{

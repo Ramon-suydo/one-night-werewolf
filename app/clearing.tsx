@@ -1,9 +1,11 @@
 'use client';
 
-import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { memo, Component, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as T from 'three';
-import {CLOAKS,sanitizeAppearance} from '@/lib/social';
+import {eyesOpen} from '@/lib/avatar-state';
+import {AvatarDebug,AvatarOverlay} from './avatar-debug';
+import {appearanceToMaterials,normalizeAppearance,HAT_IDS,FACE_IDS,DEFAULT_APPEARANCE} from '@/assets/appearance';
 import type {SceneState} from '@/lib/scene';
 import { seat,makeMotion,type MotionBus } from '@/lib/motion';
 import type {Card} from '@/engine';
@@ -23,7 +25,7 @@ import {detectGPU,QUALITY,TIERS,type QualityTier} from '@/lib/quality';
 // altar, 5-sided faceted mountains/pines, 50-degree camera and low-res renderer.
 const COLORS = { night: NIGHT.ink, dawn: '#e8a07a', ground: '#1f2a2e', clearing: '#3a2a22', snow: NIGHT.ice, pine: '#0e3a34', fire: NIGHT.fire, gold: NIGHT.gold };
 
-type Props = { view: SceneState | null; bus: MotionBus; onFallback: () => void;onReady?:()=>void; muted: string[];faces?:Record<string,Card> };
+type Props = { calm?:boolean;battery?:boolean;view: SceneState | null; bus: MotionBus; onFallback: () => void;onReady?:()=>void; muted: string[];faces?:Record<string,Card> };
 const random = (i: number) => { const n = Math.sin(i * 127.1 + 311.7) * 43758.5453; return n - Math.floor(n); };
 function Material({ color, glow = false }: { color: string; glow?: boolean }) {
   return glow ? <meshBasicMaterial color={color} /> : <meshLambertMaterial color={color} flatShading />;
@@ -140,20 +142,20 @@ function Character({ player, index, count, view, bus, reduced, elapsed }: { play
   const root = useRef<T.Group>(null); const body = useRef<T.Mesh>(null); const head = useRef<T.Group>(null); const left = useRef<T.Group>(null); const right = useRef<T.Group>(null); const arms = useRef<T.Group>(null); const cape = useRef<T.Mesh>(null); const dust = useRef<T.Mesh>(null);
   const lastStepSound=useRef(0);
   const arrived=useRef(performance.now());
-  const home = useMemo(() => seat(index, count), [index, count]); const color=player.connected?CLOAKS[player.appearance.cloak]:'#252739';
+  const home = useMemo(() => seat(index, count), [index, count]); const materials=appearanceToMaterials(player.appearance);const color=materials.cloak;const selected=useRef<T.Mesh>(null);const scratch=useMemo(()=>new T.Vector3(),[]);const previous=useMemo(()=>new T.Vector3(),[]);
   useEffect(() => { if (root.current) root.current.position.set(...home); if (player.id === view.me) { bus.local.x = home[0]; bus.local.z = home[2]; } }, [view.phase, view.round, home, player.id, view.me, bus]);
   useFrame(({ clock, camera }, dt) => {
-    const g = root.current; if (!g) return; const t = reduced ? 0 : clock.elapsedTime; const previous = g.position.clone();
+    const g = root.current; if (!g) return; const t = reduced ? 0 : clock.elapsedTime; previous.copy(g.position);
     if (['day','lobby','vote'].includes(view.phase)) {
       if (player.id === view.me) { g.position.x = bus.local.x; g.position.z = bus.local.z; }
-      else { const pos = bus.remote.get(player.id); if (pos) g.position.lerp(new T.Vector3(pos.x, 0, pos.z), 1 - Math.exp(-dt * 12)); }
-    } else g.position.lerp(new T.Vector3(...home), 1 - Math.exp(-dt * 10));
+      else { const pos = bus.remote.get(player.id); if (pos) g.position.lerp(scratch.set(pos.x, 0, pos.z), 1 - Math.exp(-dt * 12)); }
+    } else g.position.lerp(scratch.set(...home), 1 - Math.exp(-dt * 10));
     if(view.phase==='lobby'&&!reduced&&performance.now()-arrived.current<1400){const p=Math.min(1,(performance.now()-arrived.current)/1400),distance=1+2*(1-p)*(1-p);g.position.set(home[0]*distance,0,home[2]*distance)}
     const dx = g.position.x - previous.x, dz = g.position.z - previous.z; const moving = Math.hypot(dx, dz) > .001;if(moving&&player.id===view.me&&Date.now()-lastStepSound.current>350){lastStepSound.current=Date.now();window.dispatchEvent(new CustomEvent('werewolf-sfx',{detail:{name:'step',pan:Math.max(-1,Math.min(1,g.position.x/13))}}))}
-    const sleep=view.phase==='night'||!player.connected;const stance=sleep?.72:view.phase==='lobby'&&!player.ready?.78:1;
-    if (moving) g.rotation.y = Math.atan2(dx, dz); else if (view.phase !== 'day') g.rotation.y = Math.atan2(-g.position.x, -g.position.z);
-    if (body.current) body.current.position.y = stance + Math.sin(t * (moving ? 12 : 2) + index) * .025;
-    if (head.current) { head.current.position.y = stance + .8; head.current.rotation.x = sleep ? .2 + Math.sin(t + index) * .04 : Math.sin(t * .7 + index) * .04; }
+    if(selected.current){selected.current.visible=!!bus.awake&&view.phase==='night'&&!!bus.nightTargets?.includes(player.id)&&(bus.hovered===player.id||bus.selected.includes(player.id))}const sleep=!eyesOpen(view.phase,player.id,view.me,view.awake,view.teammates,player.connected);const stance=sleep?.72:view.phase==='lobby'&&!player.ready?.78:1;
+    if(moving||view.phase!=='day'){const facing=moving?Math.atan2(dx,dz):Math.atan2(-g.position.x,-g.position.z);const turn=Math.atan2(Math.sin(facing-g.rotation.y),Math.cos(facing-g.rotation.y));g.rotation.y+=turn*(reduced?1:1-Math.exp(-dt*12));}
+    if (body.current) body.current.position.y = T.MathUtils.damp(body.current.position.y,stance + Math.sin(t * (moving ? 12 : 2) + index) * .025,12,dt);
+    if (head.current) { head.current.position.y = T.MathUtils.damp(head.current.position.y,stance+.8,12,dt); head.current.rotation.x = sleep ? .2 + Math.sin(t + index) * .04 : Math.sin(t * .7 + index) * .04; }
     if (cape.current) cape.current.rotation.x = moving ? Math.sin(t * 12) * .15 : .04;
     if (left.current && right.current) { left.current.rotation.x = moving && !reduced ? Math.sin(t * 12) * .7 : sleep ? -1.1 : 0; right.current.rotation.x = -left.current.rotation.x; }
     const emote = view.emotes.find(e => e.player === player.id);
@@ -163,35 +165,37 @@ function Character({ player, index, count, view, bus, reduced, elapsed }: { play
     g.rotation.z = T.MathUtils.damp(g.rotation.z, dead ? Math.PI / 2 : victorious && role === 'wolf' ? Math.sin(t * 5) * .1 : 0, 7, dt);
     if (dust.current) { dust.current.visible = moving && !reduced; dust.current.scale.setScalar(.5 + (t * 3) % 1); }
     const tag = document.getElementById('tag-' + player.id);
-    if (tag) { const pos = new T.Vector3(g.position.x, 3.1, g.position.z).project(camera); tag.style.transform = `translate(-50%,-100%) translate(${(pos.x * .5 + .5) * innerWidth}px,${(-pos.y * .5 + .5) * innerHeight}px)`; tag.style.visibility = pos.z < 1 ? 'visible' : 'hidden'; }
+    if (tag) { const pos = scratch.set(g.position.x, 3.1, g.position.z).project(camera); tag.style.transform = `translate(-50%,-100%) translate(${(pos.x * .5 + .5) * innerWidth}px,${(-pos.y * .5 + .5) * innerHeight}px)`; tag.style.visibility = pos.z < 1 ? 'visible' : 'hidden'; }
   });
-  const hat = player.appearance.hat; const face = player.appearance.face; const sleeping=view.phase==='night'||!player.connected;const expression=player.expression;
-  return <group ref={root} position={home} onClick={e=>{e.stopPropagation();bus.onSelect?.(player.id)}}>
-    <mesh ref={body} position={[0, 1, 0]} castShadow><cylinderGeometry args={[.35, .5, 1, 6]} /><Material color={color} /></mesh>
+  const hat = HAT_IDS.indexOf(normalizeAppearance(player.appearance).hatId); const face = FACE_IDS.indexOf(normalizeAppearance(player.appearance).faceId); const sleeping=!eyesOpen(view.phase,player.id,view.me,view.awake,view.teammates,player.connected);const expression=player.expression;
+  return <group ref={root} position={home} onPointerOver={e=>{e.stopPropagation();bus.hovered=player.id}} onPointerOut={()=>{if(bus.hovered===player.id)bus.hovered=null}} onClick={e=>{e.stopPropagation();bus.onSelect?.(player.id)}}>
+    <mesh ref={selected} visible={false} position={[0,1,0]} scale={[1.12,1.08,1.12]}><cylinderGeometry args={[.35,.5,1,6]}/><meshBasicMaterial color="#ff354f" side={T.BackSide} toneMapped={false}/></mesh>
+    {player.id===view.me&&<mesh position={[0,.025,0]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[.54,.59,24]}/><meshBasicMaterial color="#ffe5a0" transparent opacity={.35} toneMapped={false}/></mesh>}
+    <mesh ref={body} userData={{avatarId:player.id}} position={[0, 1, 0]} castShadow><cylinderGeometry args={[.35, .5, 1, 6]} /><meshBasicMaterial color={color} toneMapped={false} fog={false} /></mesh>
     <mesh ref={cape} position={[0, 1, -.28]}><coneGeometry args={[.48, 1, 5, 1, true, 0, Math.PI]} /><Material color={color} /></mesh>
-    <group ref={head} position={[0, 1.8, 0]}><mesh castShadow><icosahedronGeometry args={[.38, 0]} /><Material color="#f0b98d" /></mesh>
-      {hat !== 5 && <mesh position={[0, hat === 1 ? .3 : .55, 0]} castShadow>{hat === 1 ? <sphereGeometry args={[.39, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2]} /> : hat === 3 ? <cylinderGeometry args={[.4, .5, .12, 6]} /> : hat === 4 ? <cylinderGeometry args={[.35, .35, .35, 5, 1, true]} /> : <coneGeometry args={[hat === 2 ? .35 : .45, hat === 2 ? .9 : .55, 5]} />}<Material color={hat === 4 ? '#ffd35a' : color} /></mesh>}
+    <group ref={head} position={[0, 1.8, 0]}><mesh name={'avatar-face-'+player.id} castShadow><icosahedronGeometry args={[.38, 0]} /><meshBasicMaterial color={materials.face} toneMapped={false} fog={false} /></mesh>
+      {hat !== 5 && <mesh name={'avatar-hat-'+player.id} position={[0, hat === 1 ? .3 : .55, 0]} castShadow>{hat === 1 ? <sphereGeometry args={[.39, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2]} /> : hat === 3 ? <cylinderGeometry args={[.4, .5, .12, 6]} /> : hat === 4 ? <cylinderGeometry args={[.35, .35, .35, 5, 1, true]} /> : <coneGeometry args={[hat === 2 ? .35 : .45, hat === 2 ? .9 : .55, 5]} />}<meshBasicMaterial color={materials.hat} toneMapped={false} fog={false} /></mesh>}
       {[-.14, .14].map(x => <Box key={x} p={[x, .05, .33]} rotation={[0,0,expression==='angry'?(x<0?-.3:.3):0]} size={[face === 3 ? .15 : .08, sleeping ? .025 : expression==='shocked'?.15:expression==='suspicious'||expression==='sad'||expression==='smug'&&x<0?.035:face===5?.04:.08,.05]} color="#1a1226" />)}
       {[1, 2, 4].includes(face) && <Box p={[0, -.15, .34]} size={[face === 2 ? .16 : .07, .035, .025]} color={face === 1 ? '#8a5a3c' : '#d6455d'} />}
     </group>
     <group ref={left} position={[-.17, .55, 0]}><Box p={[0, -.27, 0]} size={[.2, .55, .2]} color="#1a1226" /></group><group ref={right} position={[.17, .55, 0]}><Box p={[0, -.27, 0]} size={[.2, .55, .2]} color="#1a1226" /></group>
-    <group ref={arms} position={[0, 1.25, 0]}>{[-1, 1].map(x => <Box key={x} p={[x * .42, -.15, 0]} rotation={[0, 0, x * .1]} size={[.16, .6, .18]} color={color} />)}</group>
+    <group ref={arms} position={[0, 1.25, 0]}>{[-1, 1].map(x => <Box key={x} p={[x * .42, -.15, 0]} rotation={[0, 0, x * .1]} size={[.16, .6, .18]} color={color} glow />)}</group>
     <mesh ref={dust} position={[0, .08, .25]} visible={false}><icosahedronGeometry args={[.35, 0]} /><meshBasicMaterial color="#8a8fa8" transparent opacity={.15} /></mesh>
   </group>;
 }
 function PondPreview({reduced}:{reduced:boolean}){
- const[appearance,setAppearance]=useState({cloak:0,hat:0,face:0}),[local]=useState(makeMotion),elapsed=useRef(0);
- useEffect(()=>{try{setAppearance(sanitizeAppearance(JSON.parse(localStorage.getItem('werewolf-profile')||'{}')))}catch{}const change=(e:Event)=>setAppearance(sanitizeAppearance((e as CustomEvent).detail));window.addEventListener('werewolf-preview',change);return()=>window.removeEventListener('werewolf-preview',change)},[]);
- const preview:SceneState={code:'',host:'preview',round:0,phase:'lobby',ruleset:'solo',me:'preview',players:[{id:'preview',name:'You',appearance,connected:true,ready:true,expression:'neutral'}],order:['preview'],lockedCount:0,allowSkip:false,emotes:[],chat:[],claims:[],reveal:null};
+ const[appearance,setAppearance]=useState(DEFAULT_APPEARANCE),[local]=useState(makeMotion),elapsed=useRef(0);
+ useEffect(()=>{try{setAppearance(normalizeAppearance(JSON.parse(localStorage.getItem('werewolf-profile')||'{}')))}catch{}const change=(e:Event)=>setAppearance(normalizeAppearance((e as CustomEvent).detail));window.addEventListener('werewolf-preview',change);return()=>window.removeEventListener('werewolf-preview',change)},[]);
+ const preview:SceneState={code:'',host:'preview',round:0,phase:'lobby',phaseStarted:0,ruleset:'solo',me:'preview',awake:false,teammates:[],selected:[],players:[{id:'preview',name:'You',appearance,connected:true,ready:true,expression:'neutral'}],order:['preview'],lockedCount:0,allowSkip:false,emotes:[],chat:[],claims:[],reveal:null};
  return <group position={[8,0,-.5]} rotation={[0,Math.PI,0]}><Character player={preview.players[0]} index={0} count={1} view={preview} bus={local} reduced={reduced} elapsed={elapsed}/></group>;
 }
 function SceneCard({index,view,dealElapsed,reduced,bus,faces}:{index:number;view:SceneState;elapsed:React.RefObject<number>;dealElapsed:React.RefObject<number>;reduced:boolean;bus:MotionBus;faces:Record<string,Card>}){
  const group=useRef<T.Group>(null),[up,setUp]=useState(false),target=useMemo(()=>new T.Vector3(),[]);const count=view.order.length,id=index<count?view.order[index]:'center-'+(index-count),face=faces[id];
- useEffect(()=>{setUp(false);if(view.phase!=='result')return;const timer=setTimeout(()=>{setUp(true);window.dispatchEvent(new CustomEvent('werewolf-sfx',{detail:{name:'flip',pitch:1+index*.06}}))},reduced?0:(.7+index*.45)*1000);return()=>clearTimeout(timer)},[view.phase,view.round,index,reduced]);
+ useEffect(()=>{setUp(false);if(view.phase!=='result')return;const timer=setTimeout(()=>{setUp(true);window.dispatchEvent(new CustomEvent('werewolf-sfx',{detail:{name:'flip',pitch:1+index*.06}}))},reduced?0:Math.max(0,(.7+index*.45)*1000-(Date.now()+(bus.clockOffset||0)-view.phaseStarted)));return()=>clearTimeout(timer)},[view.phase,view.phaseStarted,view.round,index,reduced,bus]);
  useFrame(({camera,clock})=>{if(!group.current)return;if(index<count){const at=seat(index,count),radius=view.phase==='result'?1:.6;target.set(at[0]*radius,view.phase==='result'?3.6:1.4,at[2]*radius)}else target.set((index-count-1)*1.2,2.4,-1.3);
  const dealt=reduced?1:T.MathUtils.clamp((dealElapsed.current-index*.08)/.8,0,1);group.current.position.copy(target).multiplyScalar(dealt);group.current.position.y+=Math.sin(Math.PI*dealt)*3+(reduced?0:Math.sin(clock.elapsedTime*2+index)*.06);group.current.lookAt(camera.position);const slam=view.emotes.find(e=>e.kind==='slam'&&Date.now()-e.at<600);if(slam&&!reduced)group.current.position.y+=Math.sin((Date.now()-slam.at)/600*Math.PI)*.35;});
  const state=up||view.phase==='dealing'&&!!face?'up':view.phase==='night'&&!!face?'peeked':'down';
- return <group ref={group}><Card3D id={id} face={face} ruleset={view.ruleset} state={state} selectable={view.phase==='night'&&bus.awake||view.phase==='dealing'&&id===view.me} selected={bus.selected.includes(id)} reduced={reduced} onSelect={target=>bus.onSelect?.(target)} onPeek={target=>bus.onPeek?.(target)} onSwap={(a,b)=>bus.onSwap?.(a,b)}/></group>;
+ return <group ref={group}><Card3D id={id} face={face} ruleset={view.ruleset} state={state} selectable={view.phase==='night'&&view.awake||view.phase==='dealing'&&id===view.me} selected={view.selected.includes(id)} reduced={reduced} onSelect={target=>bus.onSelect?.(target)} onPeek={target=>bus.onPeek?.(target)} onSwap={(a,b)=>bus.onSwap?.(a,b)}/></group>;
 }
 function World({ view, bus, faces={}, low, setLow, reduced }: Props & { low: boolean; setLow: () => void; reduced: boolean }) {
   const { scene, camera, gl } = useThree(); const day = useRef(0); const ambient = useRef<T.AmbientLight>(null); const moonlight = useRef<T.DirectionalLight>(null); const orb = useRef<T.Mesh>(null); const skyBands = useRef<T.Group>(null);
@@ -201,35 +205,36 @@ function World({ view, bus, faces={}, low, setLow, reduced }: Props & { low: boo
   const start = useRef(0); const elapsed = useRef(0); const keys = useRef<Record<string, boolean>>({}); const privateTarget = useRef<{ id: string; until: number } | null>(null); const performanceStats = useRef({ frames: 0, time: 0 });
   const dealStarted = useRef(0); const dealElapsed = useRef(0);
   const wasReady=useRef(false);
+  const frameColor=useMemo(()=>new T.Color(),[]);const moonNight=useMemo(()=>new T.Color('#e8e4ff'),[]),moonDay=useMemo(()=>new T.Color('#ffd35a'),[]);const bandColors=useMemo(()=>Array.from({length:12},(_,i)=>[new T.Color('#120a2a').lerp(new T.Color('#2a1a52'),i/11),new T.Color('#3b3f8a').lerp(new T.Color('#ffb27a'),i/11)]),[]);
   const nightColor = useMemo(() => new T.Color(COLORS.night), []); const dawnColor = useMemo(() => new T.Color(COLORS.dawn), []);
   const starPositions = useMemo(() => new Float32Array(Array.from({ length: 260 }, (_, i) => { const a = random(i) * 6.28, e = random(i + 500) * 1.2 + .15; return [Math.cos(a) * Math.cos(e) * 120, Math.sin(e) * 120, Math.sin(a) * Math.cos(e) * 120]; }).flat()), []);
   useEffect(() => { scene.fog = new T.Fog(COLORS.night, 28, 80); gl.shadowMap.type = T.BasicShadowMap; return () => { scene.fog = null; }; }, [scene, gl]);
   useEffect(() => { start.current = performance.now() / 1000; }, [view?.phase, view?.round]);
   useEffect(() => { dealStarted.current = performance.now() / 1000; }, [view?.round]);
   useEffect(() => {
-    const down = (e: KeyboardEvent) => { if ((e.target as HTMLElement).closest('input,textarea,select,[contenteditable]')) return; const key = e.key.toLowerCase(); if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) e.preventDefault(); keys.current[key] = true; if(key==='e'&&bus.interaction){if(bus.interaction.startsWith('prop:'))bus.onLandmark?.(bus.interaction.slice(5));else{bus.focus=bus.interaction;bus.onSelect?.(bus.interaction)}} };
-    const up = (e: KeyboardEvent) => { keys.current[e.key.toLowerCase()] = false; };
+    const down = (e: KeyboardEvent) => { if (typeof e.key !== 'string' || !e.key) return; if (e.target instanceof Element && e.target.closest('input,textarea,select,[contenteditable]')) return; const key = e.key.toLowerCase(); if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(key)) e.preventDefault(); keys.current[key] = true; if(key==='e'&&bus.interaction){if(bus.interaction.startsWith('prop:'))bus.onLandmark?.(bus.interaction.slice(5));else{bus.focus=bus.interaction;bus.onSelect?.(bus.interaction)}} };
+    const up = (e: KeyboardEvent) => { if (typeof e.key !== 'string' || !e.key) return; keys.current[e.key.toLowerCase()] = false; };
     const blur = () => { keys.current = {}; bus.stick = { x: 0, z: 0 }; };
     const choice = (e: Event) => { const detail = (e as CustomEvent<{ target: string }>).detail; privateTarget.current = { id: detail.target, until: performance.now() / 1000 + 2 }; bus.focus = detail.target; };
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', blur); window.addEventListener('werewolf-private-choice', choice);
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); window.removeEventListener('werewolf-private-choice', choice); };
   }, [bus]);
   useFrame(({ clock }, dt) => {
-    const actualDelta = dt; dt = Math.min(dt, .05); elapsed.current = performance.now() / 1000 - start.current;
+    const actualDelta = dt; dt = Math.min(dt, .05); elapsed.current = view?Math.max(0,(Date.now()+(bus.clockOffset||0)-view.phaseStarted)/1000):performance.now() / 1000 - start.current;
     dealElapsed.current = performance.now() / 1000 - dealStarted.current;
     gl.domElement.dataset.avatarX = String(bus.local.x); gl.domElement.dataset.avatarZ = String(bus.local.z);
     const stats = performanceStats.current; stats.frames++; stats.time += actualDelta;
-    if (stats.time > 2) { gl.domElement.dataset.drawCalls = String(gl.info.render.calls); gl.domElement.dataset.fps = String(Math.round(stats.frames / stats.time)); if (stats.frames / stats.time < 30 || gl.info.render.calls > 220) setLow(); stats.frames = 0; stats.time = 0; }
+    if (stats.time > 2) { gl.domElement.dataset.drawCalls = String(gl.info.render.calls); gl.domElement.dataset.fps = String(Math.round(stats.frames / stats.time)); if (!reduced&&stats.frames / stats.time < 30 || gl.info.render.calls > 220) setLow(); stats.frames = 0; stats.time = 0; }
     const phase=view?.phase||'lobby',introAge=bus.introStarted===null?null:(performance.now()-bus.introStarted)/1000;const d=introAge!==null?Math.max(0,1-introAge/10):['day','vote','result'].includes(phase)?1:0;
     if(scene.fog instanceof T.Fog)scene.fog.far=MOODS[phase].fog;
     day.current = reduced ? d : T.MathUtils.damp(day.current, d, 1, dt);
-    const color = new T.Color().lerpColors(nightColor, dawnColor, day.current); scene.background = color; (scene.fog as T.Fog)?.color.copy(color);
+    const color = frameColor.lerpColors(nightColor, dawnColor, day.current); scene.background = color; (scene.fog as T.Fog)?.color.copy(color);
     if (ambient.current) ambient.current.intensity = .6 + .55 * day.current;
     if (moonlight.current) moonlight.current.intensity = .5 + .7 * day.current;
     const progress=introAge!==null?.05+Math.min(.45,introAge/40):phase==='night'?.12+Math.min(.33,elapsed.current*.003):.5;
-    if (orb.current) { orb.current.position.set(-80 * Math.cos(progress * Math.PI), 12 + 62 * Math.sin(progress * Math.PI), -85); (orb.current.material as T.MeshBasicMaterial).color.lerpColors(new T.Color('#e8e4ff'), new T.Color('#ffd35a'), day.current); moonlight.current?.position.copy(orb.current.position); }
+    if (orb.current) { orb.current.position.set(-80 * Math.cos(progress * Math.PI), 12 + 62 * Math.sin(progress * Math.PI), -85); (orb.current.material as T.MeshBasicMaterial).color.lerpColors(moonNight,moonDay, day.current); moonlight.current?.position.copy(orb.current.position); }
     if (stars.current) (stars.current.material as T.PointsMaterial).opacity = 1 - day.current;
-    skyBands.current?.children.forEach((mesh, i) => { const m = mesh as T.Mesh; (m.material as T.MeshBasicMaterial).color.lerpColors(new T.Color('#120a2a').lerp(new T.Color('#2a1a52'), i / 11), new T.Color('#3b3f8a').lerp(new T.Color('#ffb27a'), i / 11), day.current); });
+    skyBands.current?.children.forEach((mesh, i) => { const m = mesh as T.Mesh; (m.material as T.MeshBasicMaterial).color.lerpColors(bandColors[i][0],bandColors[i][1], day.current); });
     const players = view?.players || []; const my = Math.max(0, players.findIndex(p => p.id === view?.me));
     if (['day','lobby','vote'].includes(phase)&&bus.exploring) {
       let x = Number(keys.current.d || keys.current.arrowright || false) - Number(keys.current.a || keys.current.arrowleft || false) + bus.stick.x;
@@ -255,9 +260,9 @@ function World({ view, bus, faces={}, low, setLow, reduced }: Props & { low: boo
     if(!view&&bus.mirror){desired.set(8,3.5,1);target.set(8,-.2,-6);}
     if(bus.introStarted!==null){const shot=introCamera((performance.now()-bus.introStarted)/1000);desired.set(shot.x,shot.y,shot.z);target.set(0,shot.targetY,0);}
     const slam=view?.emotes.find(e=>e.kind==='slam'&&Date.now()-e.at<400);if(slam&&!reduced){desired.x+=Math.sin(clock.elapsedTime*80)*.09;desired.y+=Math.cos(clock.elapsedTime*70)*.05;}
-    if(phase==='night'&&positions[my]){const at=positions[my];desired.set(at.x, bus.awake?2.8:1.3,at.z);target.set(0,bus.awake?1:.1,-1);}
+    if(phase==='night'&&positions[my]){const at=positions[my];desired.set(at.x, view?.awake?2.8:1.3,at.z);target.set(0,view?.awake?1:.1,-1);}
     camera.position.lerp(desired, reduced || bus.skipCamera ? 1 : 1 - Math.exp(-dt * 3)); camera.lookAt(target);
-    if(view&&view.phase!=='lobby')for(let i=0;i<3;i++){const tag=document.getElementById('center-tag-'+i);if(tag){const p=new T.Vector3((i-1)*1.2,2,-3.4).project(camera);tag.style.transform=`translate(-50%,-50%) translate(${(p.x*.5+.5)*innerWidth}px,${(-p.y*.5+.5)*innerHeight}px)`;tag.style.visibility=p.z<1?'visible':'hidden'}}
+    if(view&&view.phase!=='lobby')for(let i=0;i<3;i++){const tag=document.getElementById('center-tag-'+i);if(tag){const p=new T.Vector3((i-1)*1.2,2.4,-1.3).project(camera);tag.style.transform=`translate(-50%,-50%) translate(${(p.x*.5+.5)*innerWidth}px,${(-p.y*.5+.5)*innerHeight}px)`;tag.style.visibility=p.z<1?'visible':'hidden'}}
     const skip=document.getElementById('skip-stone');if(skip){const p=new T.Vector3(2,1,0).project(camera);skip.style.transform=`translate(-50%,-50%) translate(${(p.x*.5+.5)*innerWidth}px,${(-p.y*.5+.5)*innerHeight}px)`;}
     if (trail.current) {
       const choice = privateTarget.current; const active = choice && choice.until > performance.now() / 1000; trail.current.visible = !!active;
@@ -279,15 +284,17 @@ function World({ view, bus, faces={}, low, setLow, reduced }: Props & { low: boo
     <mesh ref={trail} visible={false}><cylinderGeometry args={[1, 1, 1, 6]} /><meshBasicMaterial color="#ffd35a" transparent opacity={.65} depthWrite={false} /></mesh><mesh ref={projectile} visible={false}><octahedronGeometry args={[.16, 0]} /><meshBasicMaterial color="#ffd35a" /></mesh>
   </>;
 }
-export default function Clearing(props: Props) {
+function Clearing(props: Props) {
   const [gpu]=useState(detectGPU);const [tier,setTier]=useState<QualityTier>(()=>{const saved=localStorage.getItem('werewolf-quality') as QualityTier;return TIERS.includes(saved)?saved:gpu.tier});const quality=QUALITY[tier];const low=!quality.shadows;
-  const [prefersReduced] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);const reduced=prefersReduced||props.bus.calm;
-  const scale=props.bus.batterySaver?QUALITY.Minimum.scale:Math.min(innerWidth<700?.5:1/3,quality.scale);
+  const [prefersReduced] = useState(() => matchMedia('(prefers-reduced-motion: reduce)').matches);const reduced=prefersReduced||!!props.calm;
+  const scale=props.battery?QUALITY.Minimum.scale:Math.min(innerWidth<700?.5:1/3,quality.scale);
   const fallback = useRef(props.onFallback); fallback.current = props.onFallback;
   const onFallback=props.onFallback;
   useEffect(()=>{if(!gpu.available)onFallback();const change=(e:Event)=>setTier((e as CustomEvent<QualityTier>).detail);window.addEventListener('werewolf-quality',change);return()=>window.removeEventListener('werewolf-quality',change)},[gpu.available,onFallback]);
   const tags = props.view?.players || []; const view = props.view;
-  return <div className="clearing" aria-label="3D campfire clearing" data-testid="clearing-3d"><Boundary fallback={props.onFallback}><Canvas frameloop='demand' camera={{ fov: 50, position: [0, 12, 17], near: .1, far: 300 }} dpr={scale} shadows={!low} gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }} onCreated={({ gl }) => { gl.domElement.addEventListener('webglcontextlost', () => fallback.current(), { once: true });props.onReady?.(); }}><RenderLoop fps={props.bus.batterySaver?30:quality.fps} reduced={reduced}/><World {...props} low={low} setLow={() => { props.bus.quality = 'low'; setTier(q=>TIERS[Math.max(0,TIERS.indexOf(q)-1)]); }} reduced={reduced} /></Canvas></Boundary>
-    <div className="world-tags">{view?.phase==='vote'&&view.allowSkip&&<button className="center-tag skip-stone" id="skip-stone" onClick={()=>props.bus.onSelect?.('skip')}>Skip stone</button>}{view&&['night','dealing','result'].includes(view.phase)&&[0,1,2].map(i=><button className="center-tag" id={'center-tag-'+i} key={i} onClick={()=>props.bus.onSelect?.('center-'+i)}>{['Left','Middle','Right'][i]}</button>)}{tags.map(p => { const emote = view?.emotes.find(e => e.player === p.id); const ping = view?.emotes.some(e => e.target === p.id); const message = view?.chat.filter(m => m.player === p.id && !props.muted.includes(p.id)).at(-1); return <div className="world-tag" id={'tag-' + p.id} key={p.id}>{ping && <span className="point-ping">▼</span>}{emote && <span className="emote-bubble">{({slam:'✹',accuse:'➜',facepalm:'…',sweat:'💧','who me':'me?', wave: '✋', point: '➜', shrug: '¯\_(ツ)_/¯', laugh: 'ha!', gasp: '!', 'thumbs up': '👍' })[emote.kind]}</span>}{message && Date.now() - message.at < 5500 && <span className="speech-bubble">{message.text}</span>}<button disabled={(view?.phase==='night'||view?.phase==='vote')&&p.id===view?.me} onClick={() => { props.bus.focus = p.id;props.bus.onSelect?.(p.id); }}>{p.name}{p.id===view?.me?' · you':''}{view?.claims.filter(c=>c.player===p.id).slice(-1).map(c=><small className="claim-badge" key={c.at}>claims {RULES[c.role].name}</small>)}</button>{props.bus.selected.includes(p.id)&&view?.phase==='day'&&<div className="character-actions"><button onClick={()=>props.bus.onReact?.('point',p.id)}>Point</button><button onClick={()=>props.bus.onMenu?.('Notes')}>Claim</button><button onClick={()=>props.bus.onMenu?.('Notes')}>Note</button><button onClick={()=>props.bus.onReactions?.()}>Emote</button></div>}</div>; })}</div><div className="vignette" />{view&&['day','lobby','vote'].includes(view.phase)&&<><button id="world-interact" className="world-interact" onClick={()=>{const target=props.bus.interaction;if(target?.startsWith('prop:'))props.bus.onLandmark?.(target.slice(5));else if(target)props.bus.onSelect?.(target)}}>Interact</button><div className="world-stick" role="application" aria-label="Movement thumbstick" onPointerDown={e=>e.currentTarget.setPointerCapture(e.pointerId)} onPointerMove={e=>{if(!e.currentTarget.hasPointerCapture(e.pointerId))return;const r=e.currentTarget.getBoundingClientRect();props.bus.stick.x=Math.max(-1,Math.min(1,(e.clientX-r.left-r.width/2)/40));props.bus.stick.z=Math.max(-1,Math.min(1,(e.clientY-r.top-r.height/2)/40))}} onPointerUp={()=>{props.bus.stick={x:0,z:0}}} onPointerCancel={()=>{props.bus.stick={x:0,z:0}}}><span>✥</span></div></>}
+  return <div className="clearing" aria-label="3D campfire clearing" data-testid="clearing-3d"><Boundary fallback={props.onFallback}><Canvas frameloop='demand' camera={{ fov: 50, position: [0, 12, 17], near: .1, far: 300 }} dpr={scale} shadows={!low} gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }} onCreated={({ gl }) => { gl.outputColorSpace=T.SRGBColorSpace;gl.toneMapping=T.NoToneMapping;gl.domElement.addEventListener('webglcontextlost', () => fallback.current(), { once: true });props.onReady?.(); }}><AvatarDebug view={props.view} tier={tier}/><RenderLoop fps={props.battery?30:quality.fps} reduced={reduced}/><World {...props} low={low} setLow={() => { props.bus.quality = 'low'; setTier(q=>TIERS[Math.max(0,TIERS.indexOf(q)-1)]); }} reduced={reduced} /></Canvas></Boundary>
+    <AvatarOverlay/><div className="world-tags">{view?.phase==='vote'&&view.allowSkip&&<button className="center-tag skip-stone" id="skip-stone" onClick={()=>props.bus.onSelect?.('skip')}>Skip stone</button>}{view&&['night','dealing','result'].includes(view.phase)&&[0,1,2].map(i=><button className="center-tag" id={'center-tag-'+i} key={i} onClick={()=>props.bus.onSelect?.('center-'+i)}>{['Left','Middle','Right'][i]}</button>)}{tags.map(p => { const emote = view?.emotes.find(e => e.player === p.id); const ping = view?.emotes.some(e => e.target === p.id); const message = view?.chat.filter(m => m.player === p.id && !props.muted.includes(p.id)).at(-1); return <div className="world-tag" id={'tag-' + p.id} key={p.id}>{ping && <span className="point-ping">▼</span>}{emote && <span className="emote-bubble">{({slam:'✹',accuse:'➜',facepalm:'…',sweat:'💧','who me':'me?', wave: '✋', point: '➜', shrug: '¯\_(ツ)_/¯', laugh: 'ha!', gasp: '!', 'thumbs up': '👍' })[emote.kind]}</span>}{message && Date.now() - message.at < 5500 && <span className="speech-bubble">{message.text}</span>}<button onPointerEnter={()=>{props.bus.hovered=p.id}} onPointerLeave={()=>{if(props.bus.hovered===p.id)props.bus.hovered=null}} disabled={(view?.phase==='night'||view?.phase==='vote')&&p.id===view?.me} onClick={() => { props.bus.focus = p.id;props.bus.onSelect?.(p.id); }}>{p.name}{p.id===view?.me?' · you':''}{view?.claims.filter(c=>c.player===p.id).slice(-1).map(c=><small className="claim-badge" key={c.at}>claims {RULES[c.role].name}</small>)}</button>{view?.selected.includes(p.id)&&view.phase==='day'&&<div className="character-actions"><button onClick={()=>props.bus.onReact?.('point',p.id)}>Point</button><button onClick={()=>props.bus.onMenu?.('Notes')}>Claim</button><button onClick={()=>props.bus.onMenu?.('Notes')}>Note</button><button onClick={()=>props.bus.onReactions?.()}>Emote</button></div>}</div>; })}</div><div className="vignette" />{view&&['day','lobby','vote'].includes(view.phase)&&<><button id="world-interact" className="world-interact" onClick={()=>{const target=props.bus.interaction;if(target?.startsWith('prop:'))props.bus.onLandmark?.(target.slice(5));else if(target)props.bus.onSelect?.(target)}}>Interact</button><div className="world-stick" role="application" aria-label="Movement thumbstick" onPointerDown={e=>e.currentTarget.setPointerCapture(e.pointerId)} onPointerMove={e=>{if(!e.currentTarget.hasPointerCapture(e.pointerId))return;const r=e.currentTarget.getBoundingClientRect();props.bus.stick.x=Math.max(-1,Math.min(1,(e.clientX-r.left-r.width/2)/40));props.bus.stick.z=Math.max(-1,Math.min(1,(e.clientY-r.top-r.height/2)/40))}} onPointerUp={()=>{props.bus.stick={x:0,z:0}}} onPointerCancel={()=>{props.bus.stick={x:0,z:0}}}><span>✥</span></div></>}
   </div>;
 }
+
+export default memo(Clearing);

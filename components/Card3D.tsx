@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useMemo,useRef} from 'react';
+import {useEffect,useLayoutEffect,useMemo,useRef} from 'react';
 import {useFrame} from '@react-three/fiber';
 import * as T from 'three';
 import type {Card,Ruleset} from '@/engine';
@@ -14,9 +14,9 @@ for(let i=0;i<position.count;i++){uv.setXY(i,(position.getX(i)*80+36)/72,1-(60-p
 export function Card3D({id,face,state,selectable,selected=false,reduced=false,onPeek,onSelect,onSwap,ruleset='solo'}:Card3DProps){
  const blink=useRef<T.Mesh>(null);
  const group=useRef<T.Group>(null),mesh=useRef<T.InstancedMesh>(null),material=useRef<T.MeshBasicMaterial>(null),press=useRef<number|null>(null),fired=useRef(false),freeze=useRef(0),hover=useRef(false),angleValue=useRef(Math.PI);
- const texture=useMemo(()=>{atlas||=new T.CanvasTexture(getTabletAtlas());const t=atlas.clone();t.repeat.set(1/ATLAS_COLS,1/ATLAS_ROWS);t.magFilter=T.NearestFilter;t.minFilter=T.NearestFilter;t.colorSpace=T.SRGBColorSpace;return t},[]);
+ const texture=useMemo(()=>{atlas||=new T.CanvasTexture(getTabletAtlas());const t=atlas.clone();t.repeat.set(1/ATLAS_COLS,1/ATLAS_ROWS);t.magFilter=T.NearestFilter;t.minFilter=T.NearestFilter;t.colorSpace=T.SRGBColorSpace;const back=tabletIndex('back',ruleset);t.offset.set(back%ATLAS_COLS/ATLAS_COLS,1-(Math.floor(back/ATLAS_COLS)+1)/ATLAS_ROWS);return t},[ruleset]);
  useEffect(()=>()=>{texture.dispose();material.current?.dispose()},[texture]);
- useEffect(()=>{mesh.current?.setMatrixAt(0,new T.Matrix4());if(mesh.current)mesh.current.instanceMatrix.needsUpdate=true;freeze.current=performance.now()+(!reduced&&state==='up'?80:0)},[state,reduced]);
+ useLayoutEffect(()=>{mesh.current?.setMatrixAt(0,new T.Matrix4());if(mesh.current)mesh.current.instanceMatrix.needsUpdate=true;freeze.current=0},[state,reduced]);
  useFrame((_,delta)=>{
   const now=performance.now();if(now<freeze.current)return;
   if(press.current!==null&&cardProgress(press.current,now)===1&&!fired.current){fired.current=true;onPeek?.(id)}

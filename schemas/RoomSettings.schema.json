@@ -111,6 +111,10 @@
     "rotateHost": {
       "type": "boolean",
       "description": "rotateHost: public; host may edit only in lobby."
+    },
+    "allowDuplicateColors": {
+      "type": "boolean",
+      "description": "allowDuplicateColors: public; host may edit only in lobby."
     }
   },
   "required": [

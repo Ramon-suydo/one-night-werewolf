@@ -1,8 +1,9 @@
 import 'server-only';
+import {assignAppearance,normalizeAppearance,validAppearance} from '@/assets/appearance';
 import {createHash,randomInt,randomUUID} from 'node:crypto';
 import {ROLES,DEFAULT_SETTINGS,validateAction,validateDeck,validateVote,copiedRole,nightPosition,type RoleAction} from '@/engine';
 import {GameError,cleanName} from './engine';
-import {sanitizeAppearance,discordURL,sanitizeMessage} from './social';
+import {discordURL,sanitizeMessage} from './social';
 import {readSession,saveSession} from './session-store';
 import {advanceSession,nextSessionDeadline,startSessionRound} from './session-director';
 import {privateSession,sessionSnapshot} from './session-projection';
@@ -15,18 +16,18 @@ function assert(ok:unknown,text:string,status=400):asserts ok{if(!ok)throw new G
 const comparable=(room:SessionRoom)=>JSON.stringify({...room,revision:0,updated:0,players:room.players.map(p=>({...p,seen:0}))});
 function schedule(room:SessionRoom){if(!serverEnv('NEXT_PUBLIC_SUPABASE_URL')&&!serverEnv('VERCEL'))scheduleLocal('session:'+room.code,nextSessionDeadline(room,Date.now()),()=>tickSession(room.code))}
 export async function tickSession(code:string){for(let retry=0;retry<8;retry++){const room=await readSession(code);if(!room)return;const before=comparable(room),expected=room.revision;advanceSession(room,Date.now(),randomInt(0x7fffffff));if(comparable(room)!==before){room.revision++;room.updated=Date.now();if(!await saveSession(room,expected))continue}schedule(room);return}}
-function newPlayer(name:string,hash:string,room:SessionRoom|undefined,now:number):PlayerSecret{const occupied=room?.players.map(p=>({name:p.name}))||[];const names=new Set(occupied.map(p=>p.name.toLowerCase()));const base=cleanName(name);let chosen=base;for(let i=2;names.has(chosen.toLowerCase());i++){const suffix=' '+i;chosen=base.slice(0,12-suffix.length)+suffix}return{id:randomUUID(),name:chosen,tokenHash:hash,joined:now,seen:now,left:false,spectator:false,ready:false,revealed:false,appearance:sanitizeAppearance(null)}}
+function newPlayer(name:string,hash:string,room:SessionRoom|undefined,now:number):PlayerSecret{const occupied=room?.players.map(p=>({name:p.name}))||[];const names=new Set(occupied.map(p=>p.name.toLowerCase()));const base=cleanName(name);let chosen=base;for(let i=2;names.has(chosen.toLowerCase());i++){const suffix=' '+i;chosen=base.slice(0,12-suffix.length)+suffix}return{id:randomUUID(),name:chosen,tokenHash:hash,joined:now,seen:now,left:false,spectator:false,ready:false,revealed:false,appearance:assignAppearance(room?.players||[],null,room?.settings.allowDuplicateColors),appearanceVersion:0}}
 export async function executeSession(body:SessionRequest,token:string){
  const hash=sessionHash(token),now=Date.now(),cmd=body.command,receipt=hash+body.requestId;
  if(cmd.type==='create'){
   for(let attempt=0;attempt<20;attempt++){const bytes=createHash('sha256').update(receipt+attempt).digest(),alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ',code=[...bytes.subarray(0,4)].map(b=>alphabet[b%24]).join(''),old=await readSession(code);if(old?.receipts.includes(receipt))return sessionSnapshot(old,old.players.find(p=>p.tokenHash===hash)!.id);if(old)continue;
-   const player=newPlayer(cmd.name,hash,undefined,now);player.appearance=sanitizeAppearance(cmd.appearance);const room:SessionRoom={code,host:player.id,phase:'lobby',round:0,revision:0,updated:now,phaseStarted:now,deadline:null,nightStart:null,settings:{...DEFAULT_SETTINGS,preset:'classic',deck:null,allowed:[...ROLES],chat:'off',filter:true,discord:'',rotateHost:false},players:[player],rolesInPlay:[],revealed:[],dawnReady:[],dayReady:[],locked:[],nightLocks:{},undo:{},claims:[],chat:[],emotes:[],scores:{},history:[],receipts:[receipt]};if(await saveSession(room,-1))return sessionSnapshot(room,player.id);
+   const player=newPlayer(cmd.name,hash,undefined,now);player.appearance=assignAppearance([],cmd.appearance);const room:SessionRoom={code,host:player.id,phase:'lobby',round:0,revision:0,updated:now,phaseStarted:now,deadline:null,nightStart:null,settings:{...DEFAULT_SETTINGS,preset:'classic',deck:null,allowed:[...ROLES],chat:'off',filter:true,discord:'',rotateHost:false,allowDuplicateColors:false},players:[player],rolesInPlay:[],revealed:[],dawnReady:[],dayReady:[],locked:[],nightLocks:{},undo:{},claims:[],chat:[],emotes:[],scores:{},history:[],receipts:[receipt]};if(await saveSession(room,-1))return sessionSnapshot(room,player.id);
   }throw new GameError('The fire could not be lit. Try again.',503);
  }
  assert(body.code,'Enter a four-letter room code.');
  for(let attempt=0;attempt<20;attempt++){
   const room=await readSession(body.code);assert(room,'No fire has that code.',404);assert(now-room.updated<86400000,'This fire expired. Create a new room.',410);const expected=room.revision,before=comparable(room);let player=room.players.find(p=>p.tokenHash===hash);
-  if(cmd.type==='join'&&!player){assert(room.players.filter(p=>!p.left&&!p.spectator).length<10||cmd.spectator||room.phase!=='lobby','Ten players are already seated. Join as a spectator.');player=newPlayer(cmd.name,hash,room,now);player.appearance=sanitizeAppearance(cmd.appearance);player.spectator=!!cmd.spectator||room.phase!=='lobby';player.waiting=!cmd.spectator&&room.phase!=='lobby';room.players.push(player)}
+  if(cmd.type==='join'&&!player){assert(room.players.filter(p=>!p.left&&!p.spectator).length<10||cmd.spectator||room.phase!=='lobby','Ten players are already seated. Join as a spectator.');player=newPlayer(cmd.name,hash,room,now);player.appearance=assignAppearance(room.players,cmd.appearance,room.settings.allowDuplicateColors);player.spectator=!!cmd.spectator||room.phase!=='lobby';player.waiting=!cmd.spectator&&room.phase!=='lobby';room.players.push(player)}
   assert(player,'Join this fire first.',403);assert(!player.left||cmd.type==='join','Your seat has left this fire.',403);if(cmd.type==='join'&&player.left){assert(room.phase==='lobby','Join the next round.',403);player.left=false;player.joined=now}
   player.seen=now;advanceSession(room,now,randomInt(0x7fffffff));const id=player.id,g=room.roundSecrets;
   if(!room.receipts.includes(receipt)){
@@ -37,8 +38,14 @@ export async function executeSession(body:SessionRequest,token:string){
     case 'expression':assert(!['night','dealing','dawn','vote'].includes(room.phase),'Stay quiet during this phase.');assert(!player.lastExpression||now-player.lastExpression>1200,'Wait a moment.');player.expression=cmd.value;player.lastExpression=now;break;
     case 'start':startSessionRound(room,now,randomInt(0x7fffffff));break;
     case 'lobbyReady':assert(room.phase==='lobby','Wait for the lobby.');player.ready=cmd.value;break;
-    case 'settings':{const discord=discordURL(cmd.settings.discord);assert(discord!==null,'Use a Discord invite or channel link.');if(cmd.settings.deck)validateDeck(cmd.settings.deck,room.players.filter(p=>!p.left&&!p.spectator).length);assert(!cmd.settings.deck?.includes('doppel')||cmd.settings.doppel,'Enable Doppelgänger before adding it.');room.settings={...cmd.settings,discord};break;}
-    case 'appearance':assert(room.phase==='lobby','Change appearance in the lobby.');player.appearance=sanitizeAppearance(cmd.appearance);break;
+    case 'settings':{if(!cmd.settings.allowDuplicateColors){const cloaks=room.players.filter(p=>!p.left).map(p=>normalizeAppearance(p.appearance).cloakId);assert(new Set(cloaks).size===cloaks.length,'Choose unique cloak colors before disabling duplicates.')}const discord=discordURL(cmd.settings.discord);assert(discord!==null,'Use a Discord invite or channel link.');if(cmd.settings.deck)validateDeck(cmd.settings.deck,room.players.filter(p=>!p.left&&!p.spectator).length);assert(!cmd.settings.deck?.includes('doppel')||cmd.settings.doppel,'Enable Doppelgänger before adding it.');room.settings={...cmd.settings,discord};break;}
+    case 'appearance':{
+ assert(room.phase==='lobby','Change appearance in the lobby.');
+ assert(validAppearance(cmd.appearance),'Choose an available appearance.');
+ assert(cmd.version===(player.appearanceVersion||0),'Your appearance changed. Try again.',409);
+ assert(!player.lastAppearance||now-player.lastAppearance>=500,'Wait a moment before changing appearance.',429);
+ assert(room.settings.allowDuplicateColors||!room.players.some(p=>p.id!==id&&!p.left&&normalizeAppearance(p.appearance).cloakId===cmd.appearance.cloakId),'That cloak color is taken. Choose another.',409);
+ player.appearance={...cmd.appearance};player.appearanceVersion=(player.appearanceVersion||0)+1;player.lastAppearance=now;break;}
     case 'reveal':assert(room.phase==='dealing','Your tablet is already revealed.');if(!room.revealed.includes(id))room.revealed.push(id);break;
     case 'dawnReady':assert(room.phase==='dawn','Read your dawn report first.');if(!room.dawnReady.includes(id))room.dawnReady.push(id);break;
     case 'dayReady':assert(room.phase==='day','Discussion is not open.');room.dayReady=room.dayReady.filter(p=>p!==id);if(cmd.value)room.dayReady.push(id);break;

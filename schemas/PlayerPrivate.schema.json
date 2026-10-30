@@ -6,6 +6,10 @@
       "type": "string",
       "description": "id: own authenticated seat only."
     },
+    "ready": {
+      "type": "boolean",
+      "description": "ready: own authenticated seat only."
+    },
     "role": {
       "anyOf": [
         {
@@ -901,6 +905,7 @@
   },
   "required": [
     "id",
+    "ready",
     "role",
     "awake",
     "step",

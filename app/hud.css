@@ -8,3 +8,19 @@
 .world-interact{position:fixed;z-index:5;left:16px;bottom:220px;max-width:220px;padding:10px 14px;border:1px solid #ffd35a;background:#1a1226df;color:#ffd35a;font:19px VT323;min-height:44px;cursor:pointer}.world-stick{display:none;position:fixed;z-index:5;left:16px;bottom:160px;width:88px;height:88px;border:2px solid #69718a;border-radius:50%;background:#1a122680;touch-action:none;place-items:center;color:#ffd35a}.world-stick span{font-size:32px;pointer-events:none}.discovery-toast{position:fixed;left:50%;top:170px;translate:-50% 0;background:#1a1226ee;color:#ffd35a;border:1px solid #69718a;padding:12px;z-index:20;pointer-events:none}@media(pointer:coarse){.world-stick{display:grid}.world-interact{bottom:260px}}
 .entry-hud:focus-within{top:66%}.entry-hud:focus-within h1{font-size:24px;margin:8px 0 16px}.entry-hud:focus-within>small{display:none}.appearance-editor{padding-bottom:20px;border-bottom:1px solid #69718a}.appearance-editor select{width:100%;}.world-interact{pointer-events:auto;}
 .chat-messages{max-height:240px;overflow:auto;border:1px solid #69718a;padding:8px;background:#0e0820;overflow-wrap:anywhere}.chat-messages b{color:#ffd35a}.quiet-chat{border-bottom:1px solid #69718a;padding-bottom:20px;}
+.closed-eyes{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 70%,rgba(8,6,18,.90),#030208 90%);z-index:8;pointer-events:none;animation:eyes-close .45s ease both}
+.world-game[data-phase=night][data-awake=false] .world-tags{visibility:hidden}
+.phase-announcement{position:fixed;left:50%;top:max(90px,env(safe-area-inset-top));transform:translateX(-50%);z-index:12;display:flex;gap:14px;align-items:center;padding:14px 20px;max-width:calc(100vw - 32px);width:max-content;border:1px solid #9e8557;border-radius:12px;background:linear-gradient(135deg,#28213bef,#120e20ed);box-shadow:0 12px 38px #0007;pointer-events:none;animation:announcement 5s both cubic-bezier(.2,.8,.2,1)}
+.phase-announcement>span{font-size:28px;color:#ffd35a}.phase-announcement small{font:10px Silkscreen,monospace;letter-spacing:2px;color:#c8b78f}.phase-announcement p{margin:4px 0 0;font-size:20px;line-height:1.15}
+.btn,.icon-button{transition:transform .14s cubic-bezier(.2,.8,.2,1),filter .14s,box-shadow .14s}.btn:hover:not(:disabled),.icon-button:hover{filter:brightness(1.12);transform:translateY(-2px)}.btn:active:not(:disabled),.icon-button:active{transform:translateY(2px) scale(.97)}
+.session-drawer,.role-flyout{animation:panel-arrive .25s cubic-bezier(.18,.9,.3,1.1)}
+@keyframes panel-arrive{from{opacity:0;translate:16px 0}to{opacity:1;translate:0 0}}
+@keyframes eyes-close{from{opacity:0}to{opacity:1}}
+@keyframes announcement{0%{opacity:0;translate:0 -12px;scale:.97}8%,83%{opacity:1;translate:0 0;scale:1}100%{opacity:0;translate:0 -5px}}
+@media(prefers-reduced-motion:reduce){.phase-announcement{animation:none;opacity:1}.closed-eyes,.session-drawer,.role-flyout{animation:none}.btn,.icon-button{transition:none}.btn:hover:not(:disabled),.btn:active:not(:disabled){transform:none}}
+
+.avatar-debug{position:fixed;z-index:100;left:8px;top:140px;max-width:calc(100vw - 16px);overflow:auto;background:#070a12ed;padding:12px;color:#b3ffcd;font:11px monospace;pointer-events:none}
+:root[data-calm=true] .closed-eyes,:root[data-calm=true] .role-flyout{animation:none}
+
+@media(max-width:700px){.phase-announcement{top:160px}}
+:root[data-calm=true] .phase-announcement{animation:none}:root[data-calm=true] .btn,:root[data-calm=true] .icon-button{transition:none;transform:none}
