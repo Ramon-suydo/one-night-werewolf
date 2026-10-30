@@ -1,0 +1,10 @@
+import {it,expect} from 'vitest';
+import {hydratePublication,preparePublication} from '../lib/session-publication';
+import {newestPublic} from '../lib/session-order';
+import {publicSession} from '../lib/session-projection';
+import {DEFAULT_SETTINGS,ROLES} from '../engine';
+import type {SessionRoom} from '../lib/session-types';
+const room=():SessionRoom=>({code:'FIRE',host:'a',phase:'lobby',round:0,revision:0,updated:0,phaseStarted:0,deadline:null,nightStart:null,settings:{...DEFAULT_SETTINGS,preset:'classic',deck:null,allowed:[...ROLES],chat:'off',filter:true,discord:'',rotateHost:false},players:[],rolesInPlay:[],revealed:[],dawnReady:[],dayReady:[],locked:[],nightLocks:{},undo:{},claims:[],chat:[],emotes:[],scores:{},history:[],receipts:[]});
+it('advances publication sequence only for changes that viewers can see',()=>{const r=room();preparePublication(r);expect(r.publicSequence).toBe(1);r.revision++;r.receipts.push('secret');r.nightLocks.a=[0];preparePublication(r);expect(r.publicSequence).toBe(1);r.settings.daySeconds=240;preparePublication(r);expect(r.publicSequence).toBe(2);expect(JSON.stringify(publicSession(r))).not.toContain('publicDigest')});
+it('hydrates older rooms without inventing a public event',()=>{const r=room();hydratePublication(r);preparePublication(r);expect(r.publicSequence).toBe(0)});
+it('retains a newer complete roster when a delayed same-phase reply arrives',()=>{const r=room();preparePublication(r);const old=publicSession(r);r.settings.daySeconds=240;preparePublication(r);const current=publicSession(r);expect(newestPublic(old,current)).toBe(current);expect(newestPublic(current,old).settings.daySeconds).toBe(240)});

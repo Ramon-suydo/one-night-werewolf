@@ -6,11 +6,12 @@ export function transition(room:SessionRoom,to:Phase,now:number){if(DIRECTOR[roo
 export function startSessionRound(room:SessionRoom,now:number,seed:number){
  const order=room.players.filter(p=>!p.left&&!p.spectator).map(p=>p.id);if(order.length<3||order.length>10)throw new Error('Gather 3 to 10 players.');
  const deck=room.settings.deck||buildDeck(order.length,seeded(seed),{doppel:room.settings.doppel,preset:room.settings.preset,allowed:room.settings.allowed});
- room.roundSecrets=deal(order,deck,seeded(seed^0x531ce),room.settings);room.rolesInPlay=[...deck].sort();room.round++;room.phase='dealing';room.phaseStarted=now;room.deadline=now+25000;room.nightStart=null;room.revealed=[];room.dawnReady=[];room.dayReady=[];room.locked=[];room.nightLocks={};room.copyTarget={};room.undo={};room.claims=[];room.chat=[];room.emotes=[];room.players.forEach(p=>p.ready=false);
+ room.roundSecrets=deal(order,deck,seeded(seed^0x531ce),room.settings);room.rolesInPlay=[...deck].sort();room.round++;room.phase='dealing';room.dealReadyAt=null;room.phaseStarted=now;room.deadline=now+25000;room.nightStart=null;room.revealed=[];room.dawnReady=[];room.dayReady=[];room.locked=[];room.nightLocks={};room.copyTarget={};room.undo={};room.claims=[];room.chat=[];room.emotes=[];room.players.forEach(p=>p.ready=false);
 }
 function recordResult(room:SessionRoom){
  const g=room.roundSecrets!;if(room.history.some(h=>h.round===room.round))return;const result=evaluate(g);
- const events=[...g.events,...g.order.map((id,i)=>({kind:'vote' as const,step:9,at:0,actor:id,targets:g.votes[id]?[g.order.indexOf(g.votes[id]!)]:[],before:[g.cards[i]]})),...result.hunted.map(id=>({kind:'shot' as const,step:10,at:0,targets:[g.order.indexOf(id)]}))];
+ const resolvedAt=Math.max(0,room.phaseStarted-(room.nightStart??room.phaseStarted));
+ const events=[...g.events,...g.order.map((id,i)=>({kind:'vote' as const,step:9,at:resolvedAt,actor:id,targets:g.votes[id]?[g.order.indexOf(g.votes[id]!)]:[],before:[g.cards[i]]})),...result.hunted.map(id=>({kind:'shot' as const,step:10,at:resolvedAt,actor:g.order.find(actor=>result.banished.includes(actor)&&result.effective[g.order.indexOf(actor)]==='hunter'&&g.votes[actor]===id),targets:[g.order.indexOf(id)]}))];
  room.history=[...room.history,{round:room.round,order:g.order,names:Object.fromEntries(room.players.map(p=>[p.id,p.name])),events,result,original:g.original}].slice(-3);
  for(const p of result.players){const s=room.scores[p.id]||={wins:0,streak:0,banished:0,bluffs:0};s.wins+=Number(p.won);s.streak=p.won?s.streak+1:0;s.banished+=Number(result.banished.includes(p.id));const claim=[...room.claims].reverse().find(c=>c.player===p.id);s.bluffs+=Number(p.won&&!!claim&&claim.role!==g.original[g.order.indexOf(p.id)].role);}
 }
@@ -24,7 +25,9 @@ export function advanceSession(room:SessionRoom,now:number,seed=1){
   }
   if(!g)return;
   if(room.phase==='dealing'&&(due||live.length>0&&live.every(p=>room.revealed.includes(p.id)))){
-   const at=due?room.deadline!:now;g.order.forEach(id=>{if(!room.revealed.includes(id))room.revealed.push(id)});transition(room,'night',at);room.nightStart=at;room.deadline=nightQueue(at,room.settings.speed).at(-1)!.ends;continue;
+   if(!due&&!room.dealReadyAt){room.dealReadyAt=now+2000;room.deadline=Math.min(room.deadline!,room.dealReadyAt);return;}
+   if(!due)return;
+   const at=room.deadline!;g.order.forEach(id=>{if(!room.revealed.includes(id))room.revealed.push(id)});transition(room,'night',at);room.nightStart=at;room.deadline=nightQueue(at,room.settings.speed).at(-1)!.ends;continue;
   }
   if(room.phase==='night'){
    const current=nightPosition(room.nightStart!,now,room.settings.speed);room.stepCursor=current?`${current.index}:${current.awake}`:'done';
@@ -44,7 +47,7 @@ export function advanceSession(room:SessionRoom,now:number,seed=1){
    if(room.settings.preset==='beginner'&&seats.length>9){transition(room,'lobby',room.deadline!);room.deadline=null;return}
    if(room.settings.deck&&room.settings.deck.length!==seats.length+3)room.settings.deck=null;
    if(room.settings.rotateHost){const current=seats.findIndex(p=>p.id===room.host);room.host=seats[(current+1)%seats.length].id;}
-   startSessionRound(room,room.deadline!,seed+room.round);continue;
+   startSessionRound(room,Math.max(room.deadline!,now),seed+room.round);continue;
   }
   return;
  }

@@ -1,0 +1,20 @@
+import {beforeAll,it,expect} from 'vitest';
+import {executeSession} from '../lib/session-service';
+import {sessionRequest} from '../lib/session-schema';
+import {readSession,saveSession} from '../lib/session-store';
+import {startSessionRound,advanceSession} from '../lib/session-director';
+import {resolveNight} from '../engine';
+import {GET} from '../app/api/replay/route';
+const tokens=['1','2','3'].map(c=>c.repeat(64));
+beforeAll(()=>{process.env.NEXT_PUBLIC_SUPABASE_URL='';process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY='';process.env.SUPABASE_SERVICE_ROLE_KEY='';process.env.LOCAL_DATA_DIR='.local-data/replay-tests'});
+it('replay remains secret until Results and exposes no authentication or private command data',async()=>{
+ const command=(i:number,code:string|undefined,command:object)=>executeSession(sessionRequest.parse({code,requestId:crypto.randomUUID(),command}),tokens[i]);
+ const first=await command(0,undefined,{type:'create',name:'A'}),code=first.public.code;await command(1,code,{type:'join',name:'B'});await command(2,code,{type:'join',name:'C'});
+ const room=(await readSession(code))!,now=Date.now();startSessionRound(room,now,33);room.phase='night';room.nightStart=now;room.revealed=[...room.roundSecrets!.order];let expected=room.revision;room.revision++;expect(await saveSession(room,expected)).toBe(true);
+ const request=(round=1,token=tokens[0])=>new Request('http://localhost/api/replay?code='+code+'&round='+round,{headers:{'x-player-token':token}});
+ expect((await GET(request())).status).toBe(403);
+ room.roundSecrets=resolveNight(room.roundSecrets!);room.phase='resolution';room.phaseStarted=now;advanceSession(room,now);expected=room.revision;room.revision++;expect(await saveSession(room,expected)).toBe(true);
+ const response=await GET(request());expect(response.status).toBe(200);const text=await response.text();for(const key of ['tokenHash','publicDigest','receipts','nightLocks','undoUntil','actions'])expect(text).not.toContain(key);expect(JSON.parse(text).events.length).toBeGreaterThan(9);
+ expect((await GET(request(1,'f'.repeat(64)))).status).toBe(403);
+ room.phase='night';room.round=2;expected=room.revision;room.revision++;expect(await saveSession(room,expected)).toBe(true);expect((await GET(request(1))).status).toBe(200);expect((await GET(request(2))).status).toBe(403);expect((await GET(request(-1))).status).toBe(400);
+});

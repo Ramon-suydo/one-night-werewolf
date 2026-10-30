@@ -1,4 +1,5 @@
 import {CENTER_NAMES,DECISIONS} from '../rules/decisions';
+import {nightQueue} from './nightQueue';
 import {NIGHT_WINDOWS} from '../rules/nightWindows';
 import {effective,requireRule,type Card,type GameEvent,type Role,type RoleAction,type Round,type SimpleAction} from './types';
 const clone=(card:Card):Card=>({...card});
@@ -23,7 +24,8 @@ export function validateAction(g:Round,id:string,a:RoleAction){
 export function resolveNight(g:Round,through=NIGHT_WINDOWS.length):Round{
  const out:Round={...g,cards:g.original.map(clone),reports:Object.fromEntries(g.order.map(id=>[id,[]])),events:[{kind:'deal',step:-1,at:0,after:g.original.map(clone)}]};const n=g.order.length;
  const report=(id:string,text:string,cards?:Card[],seats?:string[])=>out.reports[id].push({text,...(cards?{cards:cards.map(clone)}:{}),...(seats?{seats}:{})});
- const event=(e:Omit<GameEvent,'at'>)=>out.events.push({...e,at:g.actionAt[e.actor||'']??e.step*1000});
+ const queue=nightQueue(0,g.settings.speed);
+ const event=(e:Omit<GameEvent,'at'>)=>{const opening=queue[e.step]?.opens||0,closing=queue[e.step]?.closes||opening;const key=e.actor?e.actor+':'+e.step+(e.step===0&&e.kind!=='copy'?':power':''):'';const raw=e.actor?(g.actionAt[key]??g.actionAt[e.actor+':'+e.step]??g.actionAt[e.actor]??opening):opening;out.events.push({...e,at:Math.min(closing,Math.max(opening,raw))})};
  const swap=(actor:string,i:number,j:number,step:number)=>{const before=[clone(out.cards[i]),clone(out.cards[j])];[out.cards[i],out.cards[j]]=[out.cards[j],out.cards[i]];event({kind:'swap',step,actor,targets:[i,j],before,after:[clone(out.cards[i]),clone(out.cards[j])]})};
  const inspect=(id:string,indices:number[],step:number,text:string)=>{report(id,text,indices.map(i=>out.cards[i]));event({kind:'peek',step,actor:id,targets:indices,after:indices.map(i=>clone(out.cards[i]))})};
  const apply=(id:string,role:Role,action:SimpleAction|undefined,step:number)=>{

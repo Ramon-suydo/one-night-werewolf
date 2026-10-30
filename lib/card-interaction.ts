@@ -19,3 +19,17 @@ export function permittedFaces(snapshot:Snapshot|null):Record<string,Card>{
  return faces;
 }
 export function cardProgress(start:number,now:number){return Math.max(0,Math.min(1,(now-start)/550))}
+
+export function interactiveCards(snapshot:Snapshot|null):string[]{
+ if(!snapshot)return[];const s=snapshot.public,p=snapshot.private;
+ if(!s.order.includes(p.id))return[];
+ if(s.phase==='dealing')return p.revealed?[]:[p.id];
+ if(s.phase!=='night'||!p.awake||p.locked)return[];
+ const role=p.role==='doppel'?p.copiedRole||'doppel':p.role,others=s.order.filter(id=>id!==p.id),centers=['center-0','center-1','center-2'];
+ if(role==='seer')return[...others,...centers];
+ if(role==='doppel'||role==='troublemaker')return others;
+ if(role==='robber')return[p.id,...others];
+ if(role==='drunk')return[p.id,...centers];
+ if(role==='wolf'&&p.report.some(r=>r.text.includes('lone wolf')))return centers;
+ return[];
+}

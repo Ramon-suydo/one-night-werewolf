@@ -1,4 +1,4 @@
-import type {GameState} from './session-types';
+import type {GameState,Snapshot} from './session-types';
 const PHASE_ORDER=['lobby','dealing','night','dawn','day','vote','resolution','result'];
 // HTTP replies and Realtime notifications travel independently. A late reply
 // may have a larger private revision than the last public notification while
@@ -14,4 +14,12 @@ export function olderPhase(next:GameState,current:GameState){
 export function keepAppearanceVersions(next:GameState,current:GameState):GameState{
  if(next.code!==current.code)return next;
  return{...next,players:next.players.map(p=>{const prior=current.players.find(v=>v.id===p.id);return prior&&(prior.appearanceVersion||0)>(p.appearanceVersion||0)?{...p,appearance:prior.appearance,appearanceVersion:prior.appearanceVersion}:p})};
+}
+
+export function newestPublic(next:GameState,current:GameState){
+ if(next.code===current.code&&(next.publicSequence||0)<(current.publicSequence||0))return current;
+ return keepAppearanceVersions(next,current);
+}
+export function olderPrivate(next:Pick<Snapshot,'revision'|'serverNow'>,current:Pick<Snapshot,'revision'|'serverNow'>){
+ return next.revision<current.revision||next.revision===current.revision&&next.serverNow<current.serverNow;
 }

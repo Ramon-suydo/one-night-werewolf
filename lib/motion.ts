@@ -1,6 +1,6 @@
 import type { PositionPacket } from './social';
 export type MotionBus = {
- clockOffset?:number;replay?:import('./replay').ReplayControl|null;hovered?:string|null;teammates?:string[];nightTargets?:string[];
+ cardMove?:{from:string;to:string;at:number}|null;clockOffset?:number;replay?:import('./replay').ReplayControl|null;hovered?:string|null;teammates?:string[];nightTargets?:string[];
   local: { x: number; z: number }; stick: { x: number; z: number };
   remote: Map<string, PositionPacket>; focus: string | null; interaction: string | null;
   overview: boolean; skipCamera: boolean; quality: 'high' | 'low';

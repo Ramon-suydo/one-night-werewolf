@@ -51,3 +51,6 @@ No persistent Vercel process is required. Clients schedule a single wake-up at t
 ## Alternatives considered
 
 Colyseus and Socket.io require persistent server processes and socket hosting beyond this Vercel model. LiveKit adds media infrastructure that this Discord-based game does not need. Supabase supplies shared Postgres transactions and managed Realtime within the verified free-plan budget, while route handlers keep secrets off every client. Provider limits and the modeled ten-player traffic budget are in BUDGET.md.
+
+
+The tabletop upgrade adds `publicSequence` to the public projection. Its server-only digest is calculated from public fields, so private actions and receipts do not advance the sequence. Own private replies also include public phase/window context and are ordered by revision and server timestamp. Client generations reject replies after leaving or being removed. See `TABLETOP_POLISH.md`.

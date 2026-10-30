@@ -2,6 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
+    "publicSequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "publicSequence: public; result/original/ballots populated only in Results."
+    },
     "code": {
       "type": "string",
       "description": "code: public; result/original/ballots populated only in Results."
